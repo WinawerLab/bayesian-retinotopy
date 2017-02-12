@@ -24,10 +24,10 @@ The Python code in this repository makes heavy use of the
 [Neuropythy](https://github.com/noahbenson/neuropythy) library, which should be
 considered a companion of this repository.  The Mathematica notebook makes heavy
 use of the [Neurotica](https://github.com/noahbenson/Neurotica) library, which
-is fairly equivalent in scope to the Neuropythy and is capable of producing the
-same registration calculations. (In fact, both libraries internally include and
-make use of a third [Java library](https://github.com/noahbenson/nben) to
-perform the registrations.)
+is fairly equivalent in scope to the Neuropythy library and is capable of
+producing the same registration calculations. (In fact, both libraries
+internally include and make use of a third [Java
+library](https://github.com/noahbenson/nben) to perform the registrations.)
 
 The versions of all libraries that were used to make the figures in the paper
 are given here.

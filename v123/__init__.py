@@ -43,6 +43,7 @@ def data_root(*args):
             raise ValueError('Cannot find data_root: %s' % dr)
     else:
         if len(args) > 1: dr = os.path.join(*args)
+        else: dr = args[0]
         _configuration['data_root'] = dr
         clear_cache()
         fspath = freesurfer_path()
@@ -378,11 +379,10 @@ def aggregate(steps=2000, scale=1.0, exclusion_threshold=None):
       predictions of retinotopy stored in the properties.
     '''
     global _agg_cache
-    tpl = (steps, scale, exclusion_threshold, max_ecccentricity)
+    tpl = (steps, scale, exclusion_threshold)
     if tpl in _agg_cache: return _agg_cache[tpl]
     dat = aggregate_register(steps=steps, scale=scale,
-                             exclusion_threshold=exclusion_threshold,
-                             max_eccentricity=max_eccentricity)
+                             exclusion_threshold=exclusion_threshold)
     hemi = ny.freesurfer_subject('fsaverage_sym').LH
     pre = dat['prediction']
     hemi = hemi.using(
@@ -416,11 +416,11 @@ def restore_default_config():
       resets the cache. If the directory that is selected by default for the data root is found,
       then it is returned, otherwise None is returned.
 
-    By default, the value of the environment variable V123_DATA_ROOT() will be used as the root,
+    By default, the value of the environment variable V123_DATA_ROOT will be used as the root,
     followed by dirname(__file__)/../data_root() (where dirname(__file__) is the v123/ source code
     directory.
     '''
-    dr = os.getenv('V123_DATA_ROOT()')
+    dr = os.getenv('V123_DATA_ROOT')
     if dr is None or not os.path.exists(dr) or not os.path.isdir(dr):
         dr = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data_root')
     data_root(dr)
@@ -428,3 +428,6 @@ def restore_default_config():
         return dr
     else:
         return None
+
+# We run this at load-time!
+restore_default_config()
