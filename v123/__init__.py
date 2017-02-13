@@ -95,6 +95,12 @@ def freesurfer_path():
       subjets.
     '''
     return os.path.join(data_root(), 'freesurfer_subjects')
+def analyses_path():
+    '''
+    v123.analyses_path() yields the current directory for the v123 analysis project's results;
+      outputs of analyses should be written here.
+    '''
+    return os.path.join(data_root(), 'analyses')
 
 # Create/load the Model of V1/V2/V3 that we will be using
 v123_model = ny.V123_model()
@@ -327,32 +333,16 @@ def _register_calc_fn(prepfn, steps, scale, ethresh):
             max_step_size=0.05)
         # and postprocess the registration
         postproc = dat['postprocess_function'](reg)
-        return {k:postproc[k]
-                for k in ['registered_coordinates', 'prediction', 
-                          'initial_polar_angle', 'initial_eccentricity', 'initial_weight',
-                          'sub_polar_angle', 'sub_eccentricity', 'sub_weight']}
+        tmp = {k:postproc[k]
+               for k in ['registered_coordinates', 'prediction', 
+                         'initial_polar_angle', 'initial_eccentricity', 'initial_weight',
+                         'sub_polar_angle', 'sub_eccentricity', 'sub_weight']}
+        tmp['resampled_registered_coordinates'] = postproc['registered_coordinates']
+        tmp['resampled_registered_coordinates_3D'] = postproc['finished_registration'].coordinates.T
+        tmp['registered_coordinates'] = postproc['registration'].coordinates.T
+        return tmp
     return _calc
-def subject_register(sub, hem, ds, steps=2000, scale=1.0, exclusion_threshold=None):
-    '''
-    subject_register(sub, hem, ds) yields a dictionary of data that is the result
-      of registering the 2D mesh constructed in subject_prep(sub, hem, ds) to the
-      V1/2/3 model. The result is cached so that it is not recalculated in the 
-      future.
 
-    The following options are accepted:
-      * steps (default: 500) specifies the number of steps to run in the minimization.
-      * scale (default: 0.1) specifies the scale of the retinotopy force field term.
-    '''
-    thresh_str = 'none' if exclusion_threshold is None else \
-                 ('%06.3f' % exclusion_threshold)
-    flnm = '%s.ds=%02d_steps=%05d_scale=%06.3f_thresh=%s.p' % (
-        hem.lower(), ds, 
-        steps, scale,
-        thresh_str)
-    return auto_cache(
-        os.path.join(sub, flnm),
-        _register_calc_fn(lambda:subject_prep(sub, hem, ds), steps, scale, 
-                          exclusion_threshold))
 def aggregate_register(steps=2000, scale=1.0, exclusion_threshold=None):
     '''
     aggregate_register() yields a dictionary of data that is the result of
@@ -374,18 +364,107 @@ def aggregate_register(steps=2000, scale=1.0, exclusion_threshold=None):
 _agg_cache = {}
 def aggregate(steps=2000, scale=1.0, exclusion_threshold=None):
     '''
-    aggregate() yields a left hemisphere object for the fsaverage_sym subject with
+    aggregate() yields a left hemisphere mesh object for the fsaverage_sym subject with
       data from both the group average retinotopy and the 'Benson14' registered
-      predictions of retinotopy stored in the properties.
+      predictions of retinotopy stored in the properties. The mesh's coordinates
+      have been registered to the V123 retinotopy model.
     '''
     global _agg_cache
     tpl = (steps, scale, exclusion_threshold)
     if tpl in _agg_cache: return _agg_cache[tpl]
     dat = aggregate_register(steps=steps, scale=scale,
                              exclusion_threshold=exclusion_threshold)
-    hemi = ny.freesurfer_subject('fsaverage_sym').LH
     pre = dat['prediction']
-    hemi = hemi.using(
+    mesh = ny.freesurfer_subject('fsaverage_sym').LH.sphere_surface
+    mesh = mesh.using(
+        coordinates=dat['registered_coordinates'],
+        properties=mesh.properties.using(
+            PRF_polar_angle=dat['sub_polar_angle'],
+            PRF_eccentricity=dat['sub_eccentricity'],
+            weight=dat['sub_weight'],
+            predicted_polar_angle=pre['polar_angle'],
+            predicted_eccentricity=pre['eccentricity'],
+            predicted_visual_area=pre['V123_label']))
+    _agg_cache[tpl] = mesh
+    return mesh
+
+def save_aggregate(directory=None, steps=2000, scale=1.0, create_directory=True):
+    '''
+    save_aggregate() saves the aggregate data in four files placed in the 
+      <analyses directory>/aggregate directory; these files are called:
+       * lh.retinotopy.steps=<steps>_scale=<scale>.sphere.reg
+       * lh.predict_angle.steps=<steps>_scale=<scale>.mgz
+       * lh.predict_eccen.steps=<steps>_scale=<scale>.mgz
+       * lh.predict_v123roi.steps=<steps>_scale=<scale>.mgz
+    The directory into which the files are saved can be set directly with the directory option. The
+    options steps and scale are also accepted.
+    '''
+    agg = aggregate(steps=steps, scale=scale)
+    dr = directory if directory is not None else os.path.join(analyses_path(), 'aggregate')
+    if not os.path.exists(dr) and create_directory:
+        os.makedirs(dr)
+    if not os.path.exists(dr) or not os.path.isdir(dr):
+        raise ValueError('Could not create directory: %d' % dr)
+    # First, save out the predicted surface overlays:
+    _surf_mgh = lambda dat, dt: nibabel.freesurfer.mghformat.MGHImage(
+        np.asarray([[dat]], dtype=dt),
+        np.eye(4))
+    flnm_tag = 'steps=%05d_scale=%05.2f' % (steps, scale)
+    flnm_pre_tmpl = 'lh.predict_%s.' + flnm_tag + '.mgz'
+    img = _surf_mgh(agg.prop('predicted_polar_angle'), np.float32)
+    img.to_filename(os.path.join(dr, flnm_pre_tmpl % 'angle'))
+    img = _surf_mgh(agg.prop('predicted_eccentricity'), np.float32)
+    img.to_filename(os.path.join(dr, flnm_pre_tmpl % 'eccen'))
+    img = _surf_mgh(agg.prop('V123_label'), np.int32)
+    img.to_filename(os.path.join(dr, flnm_pre_tmpl % 'v123roi'))
+    # Then, save out registration sphere
+    flnm_sph = os.path.join(dr, 'lh.retinotopy.%s.sphere.reg' % flnm_tag)
+    nibabel.freesurfer.write_geometry(flnm_sph, agg.coordinates.T, agg.indexed_faces.T)
+    return None
+
+
+def subject_register(sub, hem, ds, steps=2000, scale=1.0, exclusion_threshold=None):
+    '''
+    subject_register(sub, hem, ds) yields a dictionary of data that is the result
+      of registering the 2D mesh constructed in subject_prep(sub, hem, ds) to the
+      V1/2/3 model. The result is cached so that it is not recalculated in the 
+      future.
+
+    The following options are accepted:
+      * steps (default: 500) specifies the number of steps to run in the minimization.
+      * scale (default: 0.1) specifies the scale of the retinotopy force field term.
+    '''
+    thresh_str = 'none' if exclusion_threshold is None else \
+                 ('%06.3f' % exclusion_threshold)
+    flnm = '%s.ds=%02d_steps=%05d_scale=%06.3f_thresh=%s.p' % (
+        hem.lower(), ds, 
+        steps, scale,
+        thresh_str)
+    return auto_cache(
+        os.path.join(sub, flnm),
+        _register_calc_fn(lambda:subject_prep(sub, hem, ds), steps, scale, 
+                          exclusion_threshold))
+
+_sub_cache = {}
+def subject(sub, hem, ds, steps=2000, scale=1.0, exclusion_threshold=None):
+    '''
+    subject(sub, hem, ds) yields a appropriate mesh object for the subject whose subject id is
+      given (sub) with data from the appropriate dataset (ds) applied as the properties
+      'PRF_polar_angle', 'PRF_eccentricity', and 'weight' as well as the predicted retinotopy, as
+      deduced via registration, under the property names 'predicted_polar_angle', 
+      'predicted_eccentricity', and 'predicted_visual_area'.  The mesh's coordinates have been
+      registered to the V123 retinotopy model, so right hemispheres will be returned as an RHX
+      mesh object.
+    '''
+    global _sub_cache
+    tpl = (sub, hem, ds, steps, scale, exclusion_threshold)
+    if tpl in _sub_cache: return _sub_cache[tpl]
+    dat = subject_register(sub, hem, ds, steps=steps, scale=scale,
+                           exclusion_threshold=exclusion_threshold)
+    pre = dat['prediction']
+    hemi = subject_hemi(sub, hem, ds)
+    mesh = hemi.sym_sphere_surface.using(
+        coordinates=dat['registered_coordinates'],
         properties=hemi.properties.using(
             PRF_polar_angle=dat['sub_polar_angle'],
             PRF_eccentricity=dat['sub_eccentricity'],
@@ -393,9 +472,157 @@ def aggregate(steps=2000, scale=1.0, exclusion_threshold=None):
             predicted_polar_angle=pre['polar_angle'],
             predicted_eccentricity=pre['eccentricity'],
             predicted_visual_area=pre['V123_label']))
-    _agg_cache[tpl] = hemi
-    return hemi
+    _sub_cache[tpl] = mesh
+    return mesh
 
+def save_subject(sub, hem, ds, directory=None, create_directory=True):
+    '''
+    save_subject(sub, hem, ds) saves the provided subject's registration data and predictions to the
+      <analyses directory>/<subject name> directory; these files are called:
+       * lh.retinotopy.<ds>.sphere.reg OR rhx.retinotopy.<ds>.sphere.reg
+       * ?h.predict_angle.<ds>.mgz
+       * ?h.predict_eccen.<ds>.mgz
+       * ?h.predict_v123roi.<ds>.mgz
+    The directory into which the files are saved can be set directly with the directory option. The
+    options steps and scale are also accepted.
+    '''
+    dat = subject(sub, hem, ds)
+    dr = directory if directory is not None else os.path.join(analyses_path(), sub)
+    if not os.path.exists(dr) and create_directory:
+        os.makedirs(dr)
+    if not os.path.exists(dr) or not os.path.isdir(dr):
+        raise ValueError('Could not create directory: %d' % dr)
+    # First, save out the predicted surface overlays:
+    _surf_mgh = lambda dat, dt: nibabel.freesurfer.mghformat.MGHImage(
+        np.asarray([[dat]], dtype=dt),
+        np.eye(4))
+    hmname = 'lh' if hem.lower() == 'lh' else 'rhx'
+    dsname = '%02d' % ds
+    flnm_pre_tmpl = hmname + '.predict_%s.' + dsname + '.mgz'
+    img = _surf_mgh(dat.prop('predicted_polar_angle'), np.float32)
+    img.to_filename(os.path.join(dr, flnm_pre_tmpl % 'angle'))
+    img = _surf_mgh(dat.prop('predicted_eccentricity'), np.float32)
+    img.to_filename(os.path.join(dr, flnm_pre_tmpl % 'eccen'))
+    img = _surf_mgh(dat.prop('predicted_visual_area'), np.int32)
+    img.to_filename(os.path.join(dr, flnm_pre_tmpl % 'v123roi'))
+    # Then, save out registration sphere
+    flnm_sph = os.path.join(dr, '%s.retinotopy.%s.sphere.reg' % (hem.lower(), dsname))
+    nibabel.freesurfer.write_geometry(flnm_sph, dat.coordinates.T, dat.indexed_faces.T)
+    return None
+
+_sub_cmag_cache = {}
+def subject_cmag(sub, hem):
+    '''
+    subject_cmag(sub, hem) calculates and yields the cortical magnification for the given subject's
+      given hemisphere. 
+    '''
+    tpl = (sub, hem.lower())
+    if tpl in _sub_cmag_cache: return _sub_cmag_cache[tpl]
+    hemi = subject_hemi(sub, hem, 0)
+    s = subject(sub, hem, 0)
+    vlab = s.prop('predicted_visual_area')
+    eccs = s.prop('predicted_eccentricity')
+    ang0 = s.prop('predicted_polar_angle')
+    angs = np.pi/180.0 * (90 - s.prop('polar_angle'))
+    (x,y) = (eccs*np.cos(angs), eccs*np.sin(angs))
+    cmag_nei = {}
+    cmag_pth = {}
+    # We look at both white and pial surfaces:
+    for surf in ['white', 'pial']:
+        msh = getattr(hemi, surf + '_surface')
+        # First, do all the paths; we do these once per area
+        for area in [1, 2, 3]:
+            # start with eccentricity
+            for ecc in [0.31, 0.64, 1.25, 2.5, 5.0, 10.0, 20.0]:
+                path = np.asarray(list(reversed(range(-90,90,2))), dtype=np.float) * np.pi/180
+                path = ecc * np.asarray((np.cos(path), np.sin(path)))
+                cm = ny.vision.path_cortical_magnification(msh, path,
+                                                           polar_angle=ang0,
+                                                           eccentricity=eccs,
+                                                           mask=(vlab== area),
+                                                           return_all=True)
+                cmag_pth[surf + ('_V%d_ecc=%05.2f' % (area, ecc))]  = [
+                    (np.asarray(spth), np.asarray(vpth))
+                    for (spth,vpth) in zip(cm[0], cm[1])]
+            # then polar angle
+            for angd in [0.0, 10.0, 45.0, 90.0, 135.0, 170.0, 180.0]:
+                angr = np.pi/180*(90 - angd)
+                rmtx = [(np.cos(angr), -np.sin(angr)), (np.sin(angr), np.cos(angr))]
+                path = np.asarray(range(0,51,1), dtype=np.float) / 50.0 * 20.0
+                path = np.dot(rmtx, np.asarray([path,np.zeros(path.shape)]))
+                use_mask = []
+                use_angs = []
+                # we have to do some odd things to the polar angle/eccen depending on
+                # the visual area and angle:
+                if (angd == 10.0 or angd == 170.0) and area != 3:
+                    # for now, we only do the 'close-to-outer' angles for V3
+                    continue
+                if angd == 90.0 and area != 1:
+                    # we do the 90 degree dorsal or ventral line:
+                    nm = surf + ('_%sL_ang=090' % ('D' if area == 2 else 'V'))
+                    use_mask = ((vlab == 2) | (vlab == 3))
+                    use_mask = use_mask * ((ang0 >= 90.0) if area == 2 else (ang0 <= 90.0))
+                    idcs = np.where(vlab == 2)[0]
+                    use_angs = np.array(ang0)
+                    use_angs[idcs] = 180.0 - use_angs[idcs]
+                elif angd == 0.0 or angd == 180.0:
+                    # we don't do the outer edges of V3 for now; V2 is done via V1
+                    if area == 3 or area == 2: continue
+                    nm = surf + ('_V1_ang=%03d' % int(angd))
+                    use_mask = ((vlab == 1) | (vlab == 2))
+                    use_angs = np.array(ang0)
+                    idcs = np.where(vlab == 2)[0]
+                    use_angs[idcs] = -use_angs[idcs]
+                    use_mask = use_mask * ((angd <= 90.0) if angd == 0.0 else (angd >= 90.0))
+                else:
+                    nm = surf + ('_V%d_ang=%03d' % (area, int(angd)))
+                    use_mask = (vlab == area)
+                    use_angs = ang0
+                cm = ny.vision.path_cortical_magnification(msh, path,
+                                                           polar_angle=use_angs,
+                                                           eccentricity=eccs,
+                                                           mask=use_mask,
+                                                           return_all=True)
+                cmag_pth[nm]  = [(np.asarray(spth), np.asarray(vpth))
+                                 for (spth,vpth) in zip(cm[0], cm[1])]
+        # Then, calculate the neighborhood-based magnification
+        cm = ny.vision.neighborhood_cortical_magnification(msh, [x, y])
+        for (i,nm) in enumerate(['radial', 'tangential', 'areal']):
+            cmag_nei[surf + '_' + nm] = cm[:,i]
+
+    cmag = {'neighborhood': cmag_nei, 'path': cmag_pth}
+    _sub_cmag_cache[tpl] = cmag
+    return cmag
+
+def subject_save_cmag(sub, hem, directory=None, create_directory=True):
+    '''
+    subject_save_cmag(sub, hem) saves the data structures found in subject_cmag(sub,hem) out to disk
+      in the analyses_path()/<subject name> directory (may be modified with the directory argument).
+    '''
+    hem = hem.lower()
+    s = subject_cmag(sub, hem)
+    dr = directory if directory is not None else os.path.join(analyses_path(), sub)
+    if not os.path.exists(dr) and create_directory:
+        os.makedirs(dr)
+    if not os.path.exists(dr) or not os.path.isdir(dr):
+        raise ValueError('Could not create directory: %d' % dr)
+    # First, save out the predicted surface overlays from the neighborhood datae:
+    _surf_mgh = lambda dat, dt: nibabel.freesurfer.mghformat.MGHImage(
+        np.asarray([[dat]], dtype=dt),
+        np.eye(4))
+    flnm_tmpl = hem + '.cm_%s.mgz'
+    for (nm,vals) in s['neighborhood'].iteritems():
+        _surf_mgh(vals, np.float32).to_filename(os.path.join(dr, flnm_tmpl % nm))
+    # Then, save out the paths; this is done in text files
+    for (k,cm) in s['path'].iteritems():
+        fname = os.path.join(dr, '%s.cmpath_%s.dat' % (hem, k))
+        np.savetxt(fname,
+                   [(i,a,b,c,d,e)
+                    for (i,(spth,vpth)) in zip(range(len(cm)), cm)
+                    for ((a,b,c),(d,e)) in zip(spth,vpth)],
+                   fmt=('%4d','%8.4f','%8.4f','%8.4f','%8.4f','%8.4f'))
+    return None
+    
 def clear_cache():
     '''
     clear_cache() clears all in-memory caches of the subject database and yields None.
@@ -406,7 +633,9 @@ def clear_cache():
     _subject_hemi_cache = {}
     _subject_data_cache = {}
     _subject_prep_cache = {}
+    _subject_cmag_cache = {}
     _agg_cache = {}
+    _sub_cache = {}
     return None
 
 # We want to try to setup the data root if possible automatically:
