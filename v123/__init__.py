@@ -416,7 +416,7 @@ def save_aggregate(directory=None, steps=2000, scale=1.0, create_directory=True)
     img.to_filename(os.path.join(dr, flnm_pre_tmpl % 'angle'))
     img = _surf_mgh(agg.prop('predicted_eccentricity'), np.float32)
     img.to_filename(os.path.join(dr, flnm_pre_tmpl % 'eccen'))
-    img = _surf_mgh(agg.prop('V123_label'), np.int32)
+    img = _surf_mgh(agg.prop('predicted_visual_area'), np.int32)
     img.to_filename(os.path.join(dr, flnm_pre_tmpl % 'v123roi'))
     # Then, save out registration sphere
     flnm_sph = os.path.join(dr, 'lh.retinotopy.%s.sphere.reg' % flnm_tag)
