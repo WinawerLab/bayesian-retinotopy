@@ -46,6 +46,7 @@ def data_root(*args):
         else: dr = args[0]
         _configuration['data_root'] = dr
         clear_cache()
+        if not (os.path.exists(dr) and os.path.isdir(dr)): return dr
         fspath = freesurfer_path()
         # We want to run extra initialization if this is a real path:
         if dr is not None and os.path.exists(dr) and os.path.isdir(dr):
@@ -594,9 +595,9 @@ def subject_cmag(sub, hem):
     _sub_cmag_cache[tpl] = cmag
     return cmag
 
-def subject_save_cmag(sub, hem, directory=None, create_directory=True):
+def save_subject_cmag(sub, hem, directory=None, create_directory=True):
     '''
-    subject_save_cmag(sub, hem) saves the data structures found in subject_cmag(sub,hem) out to disk
+    save_subject_cmag(sub, hem) saves the data structures found in subject_cmag(sub,hem) out to disk
       in the analyses_path()/<subject name> directory (may be modified with the directory argument).
     '''
     hem = hem.lower()
