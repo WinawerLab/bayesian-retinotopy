@@ -497,7 +497,7 @@ def save_subject(sub, hem, ds, directory=None, create_directory=True):
     _surf_mgh = lambda dat, dt: nibabel.freesurfer.mghformat.MGHImage(
         np.asarray([[dat]], dtype=dt),
         np.eye(4))
-    hmname = 'lh' if hem.lower() == 'lh' else 'rhx'
+    hmname = hem.lower()
     dsname = '%02d' % ds
     flnm_pre_tmpl = hmname + '.predict_%s.' + dsname + '.mgz'
     img = _surf_mgh(dat.prop('predicted_polar_angle'), np.float32)
@@ -507,7 +507,8 @@ def save_subject(sub, hem, ds, directory=None, create_directory=True):
     img = _surf_mgh(dat.prop('predicted_visual_area'), np.int32)
     img.to_filename(os.path.join(dr, flnm_pre_tmpl % 'v123roi'))
     # Then, save out registration sphere
-    flnm_sph = os.path.join(dr, '%s.retinotopy.%s.sphere.reg' % (hem.lower(), dsname))
+    hemname = 'lh' if hem.lower() == 'lh' else 'rhx'
+    flnm_sph = os.path.join(dr, '%s.retinotopy.%s.sphere.reg' % (hemname, dsname))
     nibabel.freesurfer.write_geometry(flnm_sph, dat.coordinates.T, dat.indexed_faces.T)
     return None
 
