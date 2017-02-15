@@ -589,8 +589,12 @@ def subject_cmag(sub, hem):
         # Then, calculate the neighborhood-based magnification
         cm = ny.vision.neighborhood_cortical_magnification(msh, [x, y])
         for (i,nm) in enumerate(['radial', 'tangential', 'areal']):
-            cmag_nei[surf + '_' + nm] = cm[:,i]
-
+            cmname = surf + '_' + nm
+            # we want to do some smoothing to fill in the infinite holes; we ask it to keep the same
+            # distribution of values as were used as input, however.
+            mask = (vlab > 0) & (cm[:,i] < 85) & (cm[:,i] > 0)
+            cmag_nei[cmname] = ny.cortex.mesh_smooth(msh, cm[:,i],
+                                                     mask=mask, null=0.0, match_distribution=True)
     cmag = {'neighborhood': cmag_nei, 'path': cmag_pth}
     _sub_cmag_cache[tpl] = cmag
     return cmag
