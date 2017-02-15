@@ -592,7 +592,10 @@ def subject_cmag(sub, hem):
             cmname = surf + '_' + nm
             # we want to do some smoothing to fill in the infinite holes; we ask it to keep the same
             # distribution of values as were used as input, however.
-            mask = (vlab > 0) & (cm[:,i] < 85) & (cm[:,i] > 0)
+            where_ok = np.where(np.isfinite(cm[:,i]))[0]
+            mask = np.intersect1d(
+                np.where(vlab > 0)[0],
+                where_ok[np.where((cm[where_ok,i] < 85) & (cm[where_ok,i] > 0))[0]])
             cmag_nei[cmname] = ny.cortex.mesh_smooth(msh, cm[:,i],
                                                      mask=mask, null=0.0, match_distribution=True)
     cmag = {'neighborhood': cmag_nei, 'path': cmag_pth}
