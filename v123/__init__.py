@@ -513,7 +513,7 @@ def save_subject(sub, hem, ds, directory=None, create_directory=True):
     return None
 
 _sub_cmag_cache = {}
-def subject_cmag(sub, hem):
+def subject_cmag(sub, hem, skip_paths=False, skip_neighborhoods=False):
     '''
     subject_cmag(sub, hem) calculates and yields the cortical magnification for the given subject's
       given hemisphere. 
@@ -533,85 +533,94 @@ def subject_cmag(sub, hem):
     for surf in ['white', 'pial']:
         msh = getattr(hemi, surf + '_surface')
         # First, do all the paths; we do these once per area
-        for area in [1, 2, 3]:
-            # start with eccentricity
-            for ecc in [0.31, 0.64, 1.25, 2.5, 5.0, 10.0, 20.0]:
-                path = np.asarray(list(reversed(range(-90,90,2))), dtype=np.float) * np.pi/180
-                path = ecc * np.asarray((np.cos(path), np.sin(path)))
-                cm = ny.vision.path_cortical_magnification(msh, path,
-                                                           polar_angle=ang0,
-                                                           eccentricity=eccs,
-                                                           mask=(vlab== area),
-                                                           return_all=True)
-                cmag_pth[surf + ('_V%d_ecc=%05.2f' % (area, ecc))]  = [
-                    (np.asarray(spth), np.asarray(vpth))
-                    for (spth,vpth) in zip(cm[0], cm[1])]
-            # then polar angle
-            for angd in [0.0, 10.0, 45.0, 90.0, 135.0, 170.0, 180.0]:
-                angr = np.pi/180*(90 - angd)
-                rmtx = [(np.cos(angr), -np.sin(angr)), (np.sin(angr), np.cos(angr))]
-                path = np.asarray(range(0,51,1), dtype=np.float) / 50.0 * 20.0
-                path = np.dot(rmtx, np.asarray([path,np.zeros(path.shape)]))
-                use_mask = []
-                use_angs = []
-                # we have to do some odd things to the polar angle/eccen depending on
-                # the visual area and angle:
-                if (angd == 10.0 or angd == 170.0) and area != 3:
-                    # for now, we only do the 'close-to-outer' angles for V3
-                    continue
-                if angd == 90.0 and area != 1:
-                    # we do the 90 degree dorsal or ventral line:
-                    nm = surf + ('_%sL_ang=090' % ('D' if area == 2 else 'V'))
-                    use_mask = ((vlab == 2) | (vlab == 3))
-                    use_mask = use_mask * ((ang0 >= 90.0) if area == 2 else (ang0 <= 90.0))
-                    idcs = np.where(vlab == 2)[0]
-                    use_angs = np.array(ang0)
-                    use_angs[idcs] = 180.0 - use_angs[idcs]
-                elif angd == 0.0 or angd == 180.0:
-                    # we don't do the outer edges of V3 for now; V2 is done via V1
-                    if area == 3 or area == 2: continue
-                    nm = surf + ('_V1_ang=%03d' % int(angd))
-                    use_mask = ((vlab == 1) | (vlab == 2))
-                    use_angs = np.array(ang0)
-                    idcs = np.where(vlab == 2)[0]
-                    use_angs[idcs] = -use_angs[idcs]
-                    use_mask = use_mask * ((angd <= 90.0) if angd == 0.0 else (angd >= 90.0))
-                else:
-                    nm = surf + ('_V%d_ang=%03d' % (area, int(angd)))
-                    use_mask = (vlab == area)
-                    use_angs = ang0
-                cm = ny.vision.path_cortical_magnification(msh, path,
-                                                           polar_angle=use_angs,
-                                                           eccentricity=eccs,
-                                                           mask=use_mask,
-                                                           return_all=True)
-                cmag_pth[nm]  = [(np.asarray(spth), np.asarray(vpth))
-                                 for (spth,vpth) in zip(cm[0], cm[1])]
+        if skip_paths:
+            cmag_pth = None
+        else:
+            for area in [1, 2, 3]:
+                # start with eccentricity
+                for ecc in [0.31, 0.64, 1.25, 2.5, 5.0, 10.0, 20.0]:
+                    path = np.asarray(list(reversed(range(-90,90,2))), dtype=np.float) * np.pi/180
+                    path = ecc * np.asarray((np.cos(path), np.sin(path)))
+                    cm = ny.vision.path_cortical_magnification(msh, path,
+                                                               polar_angle=ang0,
+                                                               eccentricity=eccs,
+                                                               mask=(vlab== area),
+                                                               return_all=True)
+                    cmag_pth[surf + ('_V%d_ecc=%05.2f' % (area, ecc))]  = [
+                        (np.asarray(spth), np.asarray(vpth))
+                        for (spth,vpth) in zip(cm[0], cm[1])]
+                # then polar angle
+                for angd in [0.0, 10.0, 45.0, 90.0, 135.0, 170.0, 180.0]:
+                    angr = np.pi/180*(90 - angd)
+                    rmtx = [(np.cos(angr), -np.sin(angr)), (np.sin(angr), np.cos(angr))]
+                    path = np.asarray(range(0,51,1), dtype=np.float) / 50.0 * 20.0
+                    path = np.dot(rmtx, np.asarray([path,np.zeros(path.shape)]))
+                    use_mask = []
+                    use_angs = []
+                    # we have to do some odd things to the polar angle/eccen depending on
+                    # the visual area and angle:
+                    if (angd == 10.0 or angd == 170.0) and area != 3:
+                        # for now, we only do the 'close-to-outer' angles for V3
+                        continue
+                    if angd == 90.0 and area != 1:
+                        # we do the 90 degree dorsal or ventral line:
+                        nm = surf + ('_%sL_ang=090' % ('D' if area == 2 else 'V'))
+                        use_mask = ((vlab == 2) | (vlab == 3))
+                        use_mask = use_mask * ((ang0 >= 90.0) if area == 2 else (ang0 <= 90.0))
+                        idcs = np.where(vlab == 2)[0]
+                        use_angs = np.array(ang0)
+                        use_angs[idcs] = 180.0 - use_angs[idcs]
+                    elif angd == 0.0 or angd == 180.0:
+                        # we don't do the outer edges of V3 for now; V2 is done via V1
+                        if area == 3 or area == 2: continue
+                        nm = surf + ('_V1_ang=%03d' % int(angd))
+                        use_mask = ((vlab == 1) | (vlab == 2))
+                        use_angs = np.array(ang0)
+                        idcs = np.where(vlab == 2)[0]
+                        use_angs[idcs] = -use_angs[idcs]
+                        use_mask = use_mask * ((angd <= 90.0) if angd == 0.0 else (angd >= 90.0))
+                    else:
+                        nm = surf + ('_V%d_ang=%03d' % (area, int(angd)))
+                        use_mask = (vlab == area)
+                        use_angs = ang0
+                    cm = ny.vision.path_cortical_magnification(msh, path,
+                                                               polar_angle=use_angs,
+                                                               eccentricity=eccs,
+                                                               mask=use_mask,
+                                                               return_all=True)
+                    cmag_pth[nm]  = [(np.asarray(spth), np.asarray(vpth))
+                                     for (spth,vpth) in zip(cm[0], cm[1])]
         # Then, calculate the neighborhood-based magnification
-        cm = ny.vision.neighborhood_cortical_magnification(msh, [x, y])
-        for (i,nm) in enumerate(['radial', 'tangential', 'areal']):
-            cmname = surf + '_' + nm
-            # we want to do some smoothing to fill in the infinite holes; we ask it to keep the same
-            # distribution of values as were used as input, however.
-            where_ok = np.where(~np.isnan(cm[:,i]))[0]
-            mask = np.intersect1d(
-                np.where(vlab > 0)[0],
-                where_ok[np.where(cm[where_ok,i] > 0)[0]])
-            outliers = where_ok[np.where(cm[where_ok,i] > 75)[0]]
-            cmag_nei[cmname] = ny.cortex.mesh_smooth(msh, cm[:,i],
-                                                     mask=mask, outliers=outliers,
-                                                     null=0.0, match_distribution=True)
-    cmag = {'neighborhood': cmag_nei, 'path': cmag_pth}
-    _sub_cmag_cache[tpl] = cmag
-    return cmag
+        if skip_neighborhoods:
+            cmag_nei = None
+        else:
+            cm = ny.vision.neighborhood_cortical_magnification(msh, [x, y])
+            for (i,nm) in enumerate(['radial', 'tangential', 'areal']):
+                cmname = surf + '_' + nm
+                # we want to do some smoothing to fill in the infinite holes; we ask it to keep the same
+                # distribution of values as were used as input, however.
+                cmi = np.array(cm[:,i])
+                mask = np.where(vlab > 0)[0]
+                # make sure invalid values inside of V123 are marked as inf so that they become outliers
+                # in the smoothing algorithm below:
+                cmi[mask[np.isnan(cmi[mask])]] = np.inf
+                cmi[mask[np.isclose(cmi[mask], 0) | (cmi[mask] < 0)]] = np.inf
+                cmi[mask[cmi[mask] > 75]] = np.inf
+                cmag_nei[cmname] = ny.cortex.mesh_smooth(msh, cmi, smoothness=0.5,
+                                                         mask=mask, null=0.0, match_distribution=True)
+    if tpl not in _sub_cmag_cache: _sub_cmag_cache[tpl] = {'neighborhood': None, 'path': None}
+    if not skip_paths:             _sub_cmag_cache[tpl]['path']         = cmag_pth
+    if not skip_neighborhoods:     _sub_cmag_cache[tpl]['neighborhood'] = cmag_nei
+    return _sub_cmag_cache[tpl]
 
-def save_subject_cmag(sub, hem, directory=None, create_directory=True):
+def save_subject_cmag(sub, hem, directory=None, create_directory=True,
+                      skip_paths=False, skip_neighborhoods=False):
     '''
     save_subject_cmag(sub, hem) saves the data structures found in subject_cmag(sub,hem) out to disk
       in the analyses_path()/<subject name> directory (may be modified with the directory argument).
     '''
     hem = hem.lower()
-    s = subject_cmag(sub, hem)
+    s = subject_cmag(sub, hem, skip_paths=skip_paths, skip_neighborhoods=skip_neighborhoods)
     dr = directory if directory is not None else os.path.join(analyses_path(), sub)
     if not os.path.exists(dr) and create_directory:
         os.makedirs(dr)
@@ -622,18 +631,20 @@ def save_subject_cmag(sub, hem, directory=None, create_directory=True):
         np.asarray([[dat]], dtype=dt),
         np.eye(4))
     flnm_tmpl = hem + '.cm_%s.mgz'
-    for (nm,vals) in s['neighborhood'].iteritems():
-        _surf_mgh(vals, np.float32).to_filename(os.path.join(dr, flnm_tmpl % nm))
+    if not skip_neighborhoods:
+        for (nm,vals) in s['neighborhood'].iteritems():
+            _surf_mgh(vals, np.float32).to_filename(os.path.join(dr, flnm_tmpl % nm))
     # Then, save out the paths; this is done in text files
-    for (k,cm) in s['path'].iteritems():
-        fname = os.path.join(dr, '%s.cmpath_%s.dat' % (hem, k))
-        np.savetxt(fname,
-                   [(i,a,b,c,d,e)
-                    for (i,(spth,vpth)) in zip(range(len(cm)), cm)
-                    for ((a,b,c),(d,e)) in zip(spth,vpth)],
-                   fmt=('%4d','%8.4f','%8.4f','%8.4f','%8.4f','%8.4f'))
+    if not skip_paths:
+        for (k,cm) in s['path'].iteritems():
+            fname = os.path.join(dr, '%s.cmpath_%s.dat' % (hem, k))
+            np.savetxt(fname,
+                       [(i,a,b,c,d,e)
+                        for (i,(spth,vpth)) in zip(range(len(cm)), cm)
+                        for ((a,b,c),(d,e)) in zip(spth,vpth)],
+                       fmt=('%4d','%8.4f','%8.4f','%8.4f','%8.4f','%8.4f'))
     return None
-    
+
 def clear_cache():
     '''
     clear_cache() clears all in-memory caches of the subject database and yields None.
