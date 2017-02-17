@@ -605,7 +605,8 @@ def subject_cmag(sub, hem, skip_paths=False, skip_neighborhoods=False):
                 # in the smoothing algorithm below:
                 cmi[mask[np.isnan(cmi[mask])]] = np.inf
                 cmi[mask[np.isclose(cmi[mask], 0) | (cmi[mask] < 0)]] = np.inf
-                cmi[mask[cmi[mask] > 75]] = np.inf
+                where_big = (np.sqrt(cmi[mask]) > 75) if nm == 'areal' else (cmi[mask] > 75)
+                cmi[mask[where_big]] = np.inf
                 cmag_nei[cmname] = ny.cortex.mesh_smooth(msh, cmi, smoothness=0.5,
                                                          mask=mask, null=0.0, match_distribution=True)
     if tpl not in _sub_cmag_cache: _sub_cmag_cache[tpl] = {'neighborhood': None, 'path': None}
