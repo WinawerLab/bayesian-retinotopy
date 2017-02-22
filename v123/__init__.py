@@ -646,6 +646,27 @@ def save_subject_cmag(sub, hem, directory=None, create_directory=True,
                        fmt=('%4d','%8.4f','%8.4f','%8.4f','%8.4f','%8.4f'))
     return None
 
+def save_subject_benson14(sub, directory=None, create_directory=True):
+    '''
+    save_subject_benson14(sub) writes out a set of mgz files in the given subject's analyses
+      directory; the files are the angle, eccen, and v123roi label files for the subject's left and
+      right hemispheres, as predicted by the Benson et al. (2014) template of retinotopy.
+    '''
+    fssub = ny.freesurfer_subject(sub)
+    (lhdat, rhdat) = ny.vision.benson14_retinotopy(fssub)
+    for (hdat,hnm) in [(lhdat,'lh'), (rhdat,'rh')]:
+        for (datkey,datname) in [('polar_angle','angle'),
+                                 ('eccentricity','eccen'),
+                                 ('v123roi','v123roi')]:
+            dat = hdat[datkey]
+            flnm = os.path.join(analyses_path(), sub,
+                                hnm + '.' + datname + '_benson14.mgz')
+            img = nibabel.freesurfer.mghformat.MGHImage(
+                np.asarray([[dat]], dtype=(np.int32 if datkey == 'v123roi' else np.float32)),
+                np.eye(4))
+            img.to_filename(flnm)
+    return None
+    
 def clear_cache():
     '''
     clear_cache() clears all in-memory caches of the subject database and yields None.
