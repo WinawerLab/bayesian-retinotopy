@@ -66,6 +66,7 @@ def data_root(*args):
                             ds: os.path.join(retinotopy_path(), sub, flnm)
                             for flnm in dirfiles
                             if flnm[0] == hem[0] and flnm[-9:-4] == meas
+                            if flnm[3:8] != 'widef'
                             for ds in [int(flnm[3:5])]}
                         for meas in ['angle', 'eccen', 'vexpl', 'prfsz']}
                     for hem in ['lh', 'rh']}
