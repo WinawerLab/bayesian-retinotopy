@@ -105,7 +105,17 @@ def analyses_path():
     return os.path.join(data_root(), 'analyses')
 
 # Create/load the Model of V1/V2/V3 that we will be using
-v123_model = ny.V123_model()
+v123_model = ny.vision.RegisteredRetinotopyModel(
+    ny.vision.SchiraModel(),
+    registration='fsaverage_sym',
+    chirality='lh',
+    center=[-7.03000, -82.59000, -55.94000],
+    center_right=[58.58000, -61.84000, -52.39000],
+    radius=np.pi/2.5,
+    method='orthographic')
+# Also the 8-area model that we examine
+#benson17_model = ny.vision.load_fmm_model('benson17')
+    
 
 # This function converts a variance-explained measurement into a weight by
 # running it through an error function:
