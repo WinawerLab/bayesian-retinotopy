@@ -105,7 +105,7 @@ def analyses_path():
     return os.path.join(data_root(), 'analyses')
 
 # Create/load the Model of V1/V2/V3 that we will be using
-v123_model = ny.vision.RegisteredRetinotopyModel(
+schira_model = ny.vision.RegisteredRetinotopyModel(
     ny.vision.SchiraModel(),
     registration='fsaverage_sym',
     chirality='lh',
@@ -114,8 +114,7 @@ v123_model = ny.vision.RegisteredRetinotopyModel(
     radius=np.pi/2.5,
     method='orthographic')
 # Also the 8-area model that we examine
-#benson17_model = ny.vision.load_fmm_model('benson17')
-    
+benson17_model = ny.vision.load_fmm_model('benson17')
 
 # This function converts a variance-explained measurement into a weight by
 # running it through an error function:
@@ -256,34 +255,39 @@ def aggregate_hemi():
     return agghem
     
 _subject_prep_cache = {}
-def subject_prep(sub, hemi, ds):
+def subject_prep(sub, hemi, ds, model='benson17'):
     '''
     subject_prep(sub, hemi, dataset_no) yields a map of data as prepared by the
       neuropythy.vision.register_retinotopy_initialize function; this data should
       be ready for registration.
     '''
     global _subject_prep_cache
-    tpl = (sub,hemi,ds)
+    model = model.lower()
+    tpl = (sub,hemi,ds,model)
     if tpl in _subject_prep_cache:
         return _subject_prep_cache[tpl]
+    prior = 'retinotopy_benson17' if model == 'benson17' else 'retinotopy_benson14'
+    model = benson17_model if model == 'benson17' else schira_model
     # We need to get the weights right
-    p = ny.vision.register_retinotopy_initialize(subject_hemi(sub,hemi,ds),
-                                                 v123_model,
-                                                 weight_cutoff=0.1)
+    p = ny.vision.register_retinotopy_initialize(subject_hemi(sub,hemi,ds), model,
+                                                 prior=prior, weight_cutoff=0.1)
     _subject_prep_cache[tpl] = p
     return p
-def aggregate_prep():
+def aggregate_prep(model='benson17'):
     '''
     aggregate_prep() is like subject_prep but yields a preparation for the
     aggregate dataset instead of an individual subject.
     '''
     global _subject_prep_cache
-    if 'agg' in _subject_prep_cache: return _subject_prep_cache['agg']
-    p = ny.vision.register_retinotopy_initialize(aggregate_hemi(), v123_model,
+    model = model.lower()
+    tpl = ('agg', model)
+    if tpl in _subject_prep_cache: return _subject_prep_cache[tpl]
+    model = benson17_model if model == 'benson17' else schira_model
+    p = ny.vision.register_retinotopy_initialize(aggregate_hemi(), model,
                                                  prior=None, resample=None,
                                                  weight_cutoff=0.1,
                                                  partial_voluming_correction=False)
-    _subject_prep_cache['agg'] = p
+    _subject_prep_cache[tpl] = p
     return p
 
 def auto_cache(filename, calc_fn, cache_directory=Ellipsis, create_dirs=True):
@@ -355,7 +359,7 @@ def _register_calc_fn(prepfn, steps, scale, ethresh):
         return tmp
     return _calc
 
-def aggregate_register(steps=2000, scale=1.0, exclusion_threshold=None):
+def aggregate_register(model='benson17', steps=2000, scale=1.0, exclusion_threshold=None):
     '''
     aggregate_register() yields a dictionary of data that is the result of
       registering the 2D mesh constructed in aggregate_prep() to the V1/2/3 model.
@@ -367,14 +371,15 @@ def aggregate_register(steps=2000, scale=1.0, exclusion_threshold=None):
     '''
     thresh_str = 'none' if exclusion_threshold is None else \
                  ('%06.3f' % exclusion_threshold)
-    flnm = 'steps=%05d_scale=%06.3f_thresh=%s.p' % (steps, scale, thresh_str)
+    model = model.lower()
+    flnm = '%s_steps=%05d_scale=%06.3f_thresh=%s.p' % (model, steps, scale, thresh_str)
     return auto_cache(
         os.path.join('aggregate', flnm),
-        _register_calc_fn(aggregate_prep, steps, scale,
+        _register_calc_fn(lambda:aggregate_prep(model), steps, scale,
                           exclusion_threshold))
 
 _agg_cache = {}
-def aggregate(steps=2000, scale=1.0, exclusion_threshold=None):
+def aggregate(model='benson17', steps=2000, scale=1.0, exclusion_threshold=None):
     '''
     aggregate() yields a left hemisphere mesh object for the fsaverage_sym subject with
       data from both the group average retinotopy and the 'Benson14' registered
@@ -382,11 +387,13 @@ def aggregate(steps=2000, scale=1.0, exclusion_threshold=None):
       have been registered to the V123 retinotopy model.
     '''
     global _agg_cache
-    tpl = (steps, scale, exclusion_threshold)
+    model = model.lower()
+    tpl = (model, steps, scale, exclusion_threshold)
     if tpl in _agg_cache: return _agg_cache[tpl]
-    dat = aggregate_register(steps=steps, scale=scale,
+    dat = aggregate_register(model=model, steps=steps, scale=scale,
                              exclusion_threshold=exclusion_threshold)
     pre = dat['prediction']
+    varea = pre['visual_area'] if 'visual_area' in pre else pre['V123_label']
     mesh = ny.freesurfer_subject('fsaverage_sym').LH.sphere_surface
     mesh = mesh.using(
         coordinates=dat['registered_coordinates'],
@@ -396,11 +403,11 @@ def aggregate(steps=2000, scale=1.0, exclusion_threshold=None):
             weight=dat['sub_weight'],
             predicted_polar_angle=pre['polar_angle'],
             predicted_eccentricity=pre['eccentricity'],
-            predicted_visual_area=pre['V123_label']))
+            predicted_visual_area=varea))
     _agg_cache[tpl] = mesh
     return mesh
 
-def save_aggregate(directory=None, steps=2000, scale=1.0, create_directory=True):
+def save_aggregate(directory=None, model='benson17', steps=2000, scale=1.0, create_directory=True):
     '''
     save_aggregate() saves the aggregate data in four files placed in the 
       <analyses directory>/aggregate directory; these files are called:
@@ -411,7 +418,8 @@ def save_aggregate(directory=None, steps=2000, scale=1.0, create_directory=True)
     The directory into which the files are saved can be set directly with the directory option. The
     options steps and scale are also accepted.
     '''
-    agg = aggregate(steps=steps, scale=scale)
+    model = model.lower()
+    agg = aggregate(model=model, steps=steps, scale=scale)
     dr = directory if directory is not None else os.path.join(analyses_path(), 'aggregate')
     if not os.path.exists(dr) and create_directory:
         os.makedirs(dr)
@@ -421,7 +429,7 @@ def save_aggregate(directory=None, steps=2000, scale=1.0, create_directory=True)
     _surf_mgh = lambda dat, dt: nibabel.freesurfer.mghformat.MGHImage(
         np.asarray([[dat]], dtype=dt),
         np.eye(4))
-    flnm_tag = 'steps=%05d_scale=%05.2f' % (steps, scale)
+    flnm_tag = '%s_steps=%05d_scale=%05.2f' % (model, steps, scale)
     flnm_pre_tmpl = 'lh.predict_%s.' + flnm_tag + '.mgz'
     img = _surf_mgh(agg.prop('predicted_polar_angle'), np.float32)
     img.to_filename(os.path.join(dr, flnm_pre_tmpl % 'angle'))
@@ -435,7 +443,7 @@ def save_aggregate(directory=None, steps=2000, scale=1.0, create_directory=True)
     return None
 
 
-def subject_register(sub, hem, ds, steps=2000, scale=1.0, exclusion_threshold=None):
+def subject_register(sub, hem, ds, model='benson17',steps=2000,scale=1.0,exclusion_threshold=None):
     '''
     subject_register(sub, hem, ds) yields a dictionary of data that is the result
       of registering the 2D mesh constructed in subject_prep(sub, hem, ds) to the
@@ -443,22 +451,24 @@ def subject_register(sub, hem, ds, steps=2000, scale=1.0, exclusion_threshold=No
       future.
 
     The following options are accepted:
+      * model (default: 'benson17') may be 'benson17' or 'schira'.
       * steps (default: 500) specifies the number of steps to run in the minimization.
       * scale (default: 0.1) specifies the scale of the retinotopy force field term.
     '''
     thresh_str = 'none' if exclusion_threshold is None else \
                  ('%06.3f' % exclusion_threshold)
-    flnm = '%s.ds=%02d_steps=%05d_scale=%06.3f_thresh=%s.p' % (
-        hem.lower(), ds, 
+    model = model.lower()
+    flnm = '%s.ds=%02d_%s_steps=%05d_scale=%06.3f_thresh=%s.p' % (
+        hem.lower(), ds, model,
         steps, scale,
         thresh_str)
     return auto_cache(
         os.path.join(sub, flnm),
-        _register_calc_fn(lambda:subject_prep(sub, hem, ds), steps, scale, 
+        _register_calc_fn(lambda:subject_prep(sub, hem, ds, model), steps, scale, 
                           exclusion_threshold))
 
 _sub_cache = {}
-def subject(sub, hem, ds, steps=2000, scale=1.0, exclusion_threshold=None):
+def subject(sub, hem, ds, model='benson17', steps=2000, scale=1.0, exclusion_threshold=None):
     '''
     subject(sub, hem, ds) yields a appropriate mesh object for the subject whose subject id is
       given (sub) with data from the appropriate dataset (ds) applied as the properties
@@ -469,9 +479,10 @@ def subject(sub, hem, ds, steps=2000, scale=1.0, exclusion_threshold=None):
       mesh object.
     '''
     global _sub_cache
-    tpl = (sub, hem, ds, steps, scale, exclusion_threshold)
+    model = model.lower()
+    tpl = (sub, hem, ds, model, steps, scale, exclusion_threshold)
     if tpl in _sub_cache: return _sub_cache[tpl]
-    dat = subject_register(sub, hem, ds, steps=steps, scale=scale,
+    dat = subject_register(sub, hem, ds, model=model, steps=steps, scale=scale,
                            exclusion_threshold=exclusion_threshold)
     pre = dat['prediction']
     hemi = subject_hemi(sub, hem, ds)
@@ -483,11 +494,11 @@ def subject(sub, hem, ds, steps=2000, scale=1.0, exclusion_threshold=None):
             weight=dat['sub_weight'],
             predicted_polar_angle=pre['polar_angle'],
             predicted_eccentricity=pre['eccentricity'],
-            predicted_visual_area=pre['V123_label']))
+            predicted_visual_area=pre['visual_area']))
     _sub_cache[tpl] = mesh
     return mesh
 
-def save_subject(sub, hem, ds, directory=None, create_directory=True):
+def save_subject(sub, hem, ds, model='benson17', directory=None, create_directory=True):
     '''
     save_subject(sub, hem, ds) saves the provided subject's registration data and predictions to the
       <analyses directory>/<subject name> directory; these files are called:
@@ -498,7 +509,8 @@ def save_subject(sub, hem, ds, directory=None, create_directory=True):
     The directory into which the files are saved can be set directly with the directory option. The
     options steps and scale are also accepted.
     '''
-    dat = subject(sub, hem, ds)
+    model = model.lower()
+    dat = subject(sub, hem, ds, model=model)
     dr = directory if directory is not None else os.path.join(analyses_path(), sub)
     if not os.path.exists(dr) and create_directory:
         os.makedirs(dr)
@@ -510,29 +522,30 @@ def save_subject(sub, hem, ds, directory=None, create_directory=True):
         np.eye(4))
     hmname = hem.lower()
     dsname = '%02d' % ds
-    flnm_pre_tmpl = hmname + '.predict_%s.' + dsname + '.mgz'
+    flnm_pre_tmpl = hmname + '.predict_' + model + '_%s.' + dsname + '.mgz'
     img = _surf_mgh(dat.prop('predicted_polar_angle'), np.float32)
     img.to_filename(os.path.join(dr, flnm_pre_tmpl % 'angle'))
     img = _surf_mgh(dat.prop('predicted_eccentricity'), np.float32)
     img.to_filename(os.path.join(dr, flnm_pre_tmpl % 'eccen'))
     img = _surf_mgh(dat.prop('predicted_visual_area'), np.int32)
-    img.to_filename(os.path.join(dr, flnm_pre_tmpl % 'v123roi'))
+    img.to_filename(os.path.join(dr, flnm_pre_tmpl % 'varea'))
     # Then, save out registration sphere
     hemname = 'lh' if hem.lower() == 'lh' else 'rhx'
-    flnm_sph = os.path.join(dr, '%s.retinotopy.%s.sphere.reg' % (hemname, dsname))
+    flnm_sph = os.path.join(dr, '%s.retinotopy.%s_%s.sphere.reg' % (hemname, model, dsname))
     nibabel.freesurfer.write_geometry(flnm_sph, dat.coordinates.T, dat.indexed_faces.T)
     return None
 
 _sub_cmag_cache = {}
-def subject_cmag(sub, hem, skip_paths=False, skip_neighborhoods=False):
+def subject_cmag(sub, hem, model='benson17', skip_paths=False, skip_neighborhoods=False):
     '''
     subject_cmag(sub, hem) calculates and yields the cortical magnification for the given subject's
       given hemisphere. 
     '''
-    tpl = (sub, hem.lower())
+    model = model.lower()
+    tpl = (sub, hem.lower(), model)
     if tpl in _sub_cmag_cache: return _sub_cmag_cache[tpl]
     hemi = subject_hemi(sub, hem, 0)
-    s = subject(sub, hem, 0)
+    s = subject(sub, hem, 0, model)
     vlab = s.prop('predicted_visual_area')
     eccs = s.prop('predicted_eccentricity')
     ang0 = s.prop('predicted_polar_angle')
@@ -547,7 +560,8 @@ def subject_cmag(sub, hem, skip_paths=False, skip_neighborhoods=False):
         if skip_paths:
             cmag_pth = None
         else:
-            for area in [1, 2, 3]:
+            for area in np.unique(vlab):
+                if area == 0: continue
                 # start with eccentricity
                 for ecc in [0.31, 0.64, 1.25, 2.5, 5.0, 10.0, 20.0]:
                     path = np.asarray(list(reversed(range(-90,90,2))), dtype=np.float) * np.pi/180
@@ -625,14 +639,15 @@ def subject_cmag(sub, hem, skip_paths=False, skip_neighborhoods=False):
     if not skip_neighborhoods:     _sub_cmag_cache[tpl]['neighborhood'] = cmag_nei
     return _sub_cmag_cache[tpl]
 
-def save_subject_cmag(sub, hem, directory=None, create_directory=True,
+def save_subject_cmag(sub, hem, model='benson17', directory=None, create_directory=True,
                       skip_paths=False, skip_neighborhoods=False):
     '''
     save_subject_cmag(sub, hem) saves the data structures found in subject_cmag(sub,hem) out to disk
       in the analyses_path()/<subject name> directory (may be modified with the directory argument).
     '''
     hem = hem.lower()
-    s = subject_cmag(sub, hem, skip_paths=skip_paths, skip_neighborhoods=skip_neighborhoods)
+    model = model.lower()
+    s = subject_cmag(sub, hem, model, skip_paths=skip_paths, skip_neighborhoods=skip_neighborhoods)
     dr = directory if directory is not None else os.path.join(analyses_path(), sub)
     if not os.path.exists(dr) and create_directory:
         os.makedirs(dr)
@@ -642,14 +657,14 @@ def save_subject_cmag(sub, hem, directory=None, create_directory=True,
     _surf_mgh = lambda dat, dt: nibabel.freesurfer.mghformat.MGHImage(
         np.asarray([[dat]], dtype=dt),
         np.eye(4))
-    flnm_tmpl = hem + '.cm_%s.mgz'
+    flnm_tmpl = hem + '.cm_' + model + '_%s.mgz'
     if not skip_neighborhoods:
         for (nm,vals) in s['neighborhood'].iteritems():
             _surf_mgh(vals, np.float32).to_filename(os.path.join(dr, flnm_tmpl % nm))
     # Then, save out the paths; this is done in text files
     if not skip_paths:
         for (k,cm) in s['path'].iteritems():
-            fname = os.path.join(dr, '%s.cmpath_%s.dat' % (hem, k))
+            fname = os.path.join(dr, '%s.cmpath_%s_%s.dat' % (hem, model, k))
             np.savetxt(fname,
                        [(i,a,b,c,d,e)
                         for (i,(spth,vpth)) in zip(range(len(cm)), cm)
