@@ -608,11 +608,14 @@ def subject_cmag(sub, hem, model='benson17', skip_paths=False, skip_neighborhood
                         nm = surf + ('_V%d_ang=%03d' % (area, int(angd)))
                         use_mask = (vlab == area)
                         use_angs = ang0
-                    cm = ny.vision.path_cortical_magnification(msh, path,
-                                                               polar_angle=use_angs,
-                                                               eccentricity=eccs,
-                                                               mask=use_mask,
-                                                               return_all=True)
+                    try:
+                        cm = ny.vision.path_cortical_magnification(msh, path,
+                                                                   polar_angle=use_angs,
+                                                                   eccentricity=eccs,
+                                                                   mask=use_mask,
+                                                                   return_all=True)
+                    except:
+                        cm = ([], [])
                     cmag_pth[nm]  = [(np.asarray(spth), np.asarray(vpth))
                                      for (spth,vpth) in zip(cm[0], cm[1])]
         # Then, calculate the neighborhood-based magnification
