@@ -414,7 +414,7 @@ def save_aggregate(directory=None, model='benson17', steps=2000, scale=1.0, crea
        * lh.retinotopy.steps=<steps>_scale=<scale>.sphere.reg
        * lh.predict_angle.steps=<steps>_scale=<scale>.mgz
        * lh.predict_eccen.steps=<steps>_scale=<scale>.mgz
-       * lh.predict_v123roi.steps=<steps>_scale=<scale>.mgz
+       * lh.predict_varea.steps=<steps>_scale=<scale>.mgz
     The directory into which the files are saved can be set directly with the directory option. The
     options steps and scale are also accepted.
     '''
@@ -436,7 +436,7 @@ def save_aggregate(directory=None, model='benson17', steps=2000, scale=1.0, crea
     img = _surf_mgh(agg.prop('predicted_eccentricity'), np.float32)
     img.to_filename(os.path.join(dr, flnm_pre_tmpl % 'eccen'))
     img = _surf_mgh(agg.prop('predicted_visual_area'), np.int32)
-    img.to_filename(os.path.join(dr, flnm_pre_tmpl % 'v123roi'))
+    img.to_filename(os.path.join(dr, flnm_pre_tmpl % 'varea'))
     # Then, save out registration sphere
     flnm_sph = os.path.join(dr, 'lh.retinotopy.%s.sphere.reg' % flnm_tag)
     nibabel.freesurfer.write_geometry(flnm_sph, agg.coordinates.T, agg.indexed_faces.T)
@@ -505,7 +505,7 @@ def save_subject(sub, hem, ds, model='benson17', directory=None, create_director
        * lh.retinotopy.<ds>.sphere.reg OR rhx.retinotopy.<ds>.sphere.reg
        * ?h.predict_angle.<ds>.mgz
        * ?h.predict_eccen.<ds>.mgz
-       * ?h.predict_v123roi.<ds>.mgz
+       * ?h.predict_varea.<ds>.mgz
     The directory into which the files are saved can be set directly with the directory option. The
     options steps and scale are also accepted.
     '''
@@ -628,18 +628,19 @@ def subject_cmag(sub, hem, model='benson17', skip_paths=False, skip_neighborhood
             cm = ny.vision.neighborhood_cortical_magnification(msh, [x, y])
             for (i,nm) in enumerate(['radial', 'tangential', 'areal']):
                 cmname = surf + '_' + nm
-                # we want to do some smoothing to fill in the infinite holes; we ask it to keep the same
-                # distribution of values as were used as input, however.
+                # we want to do some smoothing to fill in the infinite holes; we ask it to keep the
+                # same distribution of values as were used as input, however.
                 cmi = np.array(cm[:,i])
                 mask = np.where(vlab > 0)[0]
-                # make sure invalid values inside of V123 are marked as inf so that they become outliers
-                # in the smoothing algorithm below:
+                # make sure invalid values inside of V123 are marked as inf so that they become
+                # outliers in the smoothing algorithm below:
                 cmi[mask[np.isnan(cmi[mask])]] = np.inf
                 cmi[mask[np.isclose(cmi[mask], 0) | (cmi[mask] < 0)]] = np.inf
                 where_big = (np.sqrt(cmi[mask]) > 75) if nm == 'areal' else (cmi[mask] > 75)
                 cmi[mask[where_big]] = np.inf
                 cmag_nei[cmname] = ny.cortex.mesh_smooth(msh, cmi, smoothness=0.5,
-                                                         mask=mask, null=0.0, match_distribution=True)
+                                                         mask=mask, null=0.0,
+                                                         match_distribution=True)
     if tpl not in _sub_cmag_cache: _sub_cmag_cache[tpl] = {'neighborhood': None, 'path': None}
     if not skip_paths:             _sub_cmag_cache[tpl]['path']         = cmag_pth
     if not skip_neighborhoods:     _sub_cmag_cache[tpl]['neighborhood'] = cmag_nei
@@ -681,20 +682,20 @@ def save_subject_cmag(sub, hem, model='benson17', directory=None, create_directo
 def save_subject_benson14(sub, directory=None, create_directory=True):
     '''
     save_subject_benson14(sub) writes out a set of mgz files in the given subject's analyses
-      directory; the files are the angle, eccen, and v123roi label files for the subject's left and
+      directory; the files are the angle, eccen, and varea label files for the subject's left and
       right hemispheres, as predicted by the Benson et al. (2014) template of retinotopy.
     '''
     fssub = ny.freesurfer_subject(sub)
     (lhdat, rhdat) = ny.vision.benson14_retinotopy(fssub)
     for (hdat,hnm) in [(lhdat,'lh'), (rhdat,'rh')]:
-        for (datkey,datname) in [('polar_angle','angle'),
-                                 ('eccentricity','eccen'),
-                                 ('v123roi','v123roi')]:
+        for (datkey,datname) in [('polar_angle',  'angle'),
+                                 ('eccentricity', 'eccen'),
+                                 ('visual_area',  'varea')]:
             dat = hdat[datkey]
             flnm = os.path.join(analyses_path(), sub,
                                 hnm + '.' + datname + '_benson14.mgz')
             img = nibabel.freesurfer.mghformat.MGHImage(
-                np.asarray([[dat]], dtype=(np.int32 if datkey == 'v123roi' else np.float32)),
+                np.asarray([[dat]], dtype=(np.int32 if datname == 'varea' else np.float32)),
                 np.eye(4))
             img.to_filename(flnm)
     return None
