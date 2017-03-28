@@ -566,15 +566,18 @@ def subject_cmag(sub, hem, model='benson17', skip_paths=False, skip_neighborhood
                 for ecc in [0.31, 0.64, 1.25, 2.5, 5.0, 10.0, 20.0]:
                     path = np.asarray(list(reversed(range(-90,90,2))), dtype=np.float) * np.pi/180
                     path = ecc * np.asarray((np.cos(path), np.sin(path)))
-                    cm = ny.vision.path_cortical_magnification(msh, path,
-                                                               polar_angle=ang0,
-                                                               eccentricity=eccs,
-                                                               mask=(vlab== area),
-                                                               return_all=True)
+                    try:
+                        cm = ny.vision.path_cortical_magnification(msh, path,
+                                                                   polar_angle=ang0,
+                                                                   eccentricity=eccs,
+                                                                   mask=(vlab== area),
+                                                                   return_all=True)
+                    except:
+                        cm = ([], [])
                     cmag_pth[surf + ('_V%d_ecc=%05.2f' % (area, ecc))]  = [
                         (np.asarray(spth), np.asarray(vpth))
                         for (spth,vpth) in zip(cm[0], cm[1])]
-                # then polar angle
+                    # then polar angle
                 for angd in [0.0, 10.0, 45.0, 90.0, 135.0, 170.0, 180.0]:
                     angr = np.pi/180*(90 - angd)
                     rmtx = [(np.cos(angr), -np.sin(angr)), (np.sin(angr), np.cos(angr))]
