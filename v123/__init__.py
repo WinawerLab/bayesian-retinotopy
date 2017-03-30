@@ -255,7 +255,7 @@ def aggregate_hemi():
     return agghem
     
 _subject_prep_cache = {}
-def subject_prep(sub, hemi, ds, model='benson17'):
+def subject_prep(sub, hemi, ds, model='benson17', clip=None):
     '''
     subject_prep(sub, hemi, dataset_no) yields a map of data as prepared by the
       neuropythy.vision.register_retinotopy_initialize function; this data should
@@ -263,14 +263,17 @@ def subject_prep(sub, hemi, ds, model='benson17'):
     '''
     global _subject_prep_cache
     model = model.lower()
-    tpl = (sub,hemi,ds,model)
+    tpl = (sub,hemi,ds,model,clip)
     if tpl in _subject_prep_cache:
         return _subject_prep_cache[tpl]
     prior = 'retinotopy_benson17' if model == 'benson17' else 'retinotopy_benson14'
     model = benson17_model if model == 'benson17' else schira_model
     # We need to get the weights right
-    p = ny.vision.register_retinotopy_initialize(subject_hemi(sub,hemi,ds), model,
-                                                 prior=prior, weight_cutoff=0.1)
+    hem = subject_hemi(sub,hemi,ds)
+    ws = ny.vision.extract_retinotopy_argument(hem, 'weight', None, default='empirical')
+    if clip is not None: ws[ws > clip] = 0
+    p = ny.vision.register_retinotopy_initialize(hem, model,
+                                                 weight=ws, prior=prior, weight_cutoff=0.1)
     _subject_prep_cache[tpl] = p
     return p
 def aggregate_prep(model='benson17'):
@@ -443,7 +446,8 @@ def save_aggregate(directory=None, model='benson17', steps=2000, scale=1.0, crea
     return None
 
 
-def subject_register(sub, hem, ds, model='benson17',steps=2000,scale=1.0,exclusion_threshold=None):
+def subject_register(sub, hem, ds, model='benson17',
+                     steps=2000, scale=1.0, exclusion_threshold=None, clip=None):
     '''
     subject_register(sub, hem, ds) yields a dictionary of data that is the result
       of registering the 2D mesh constructed in subject_prep(sub, hem, ds) to the
@@ -458,17 +462,19 @@ def subject_register(sub, hem, ds, model='benson17',steps=2000,scale=1.0,exclusi
     thresh_str = 'none' if exclusion_threshold is None else \
                  ('%06.3f' % exclusion_threshold)
     model = model.lower()
-    flnm = '%s.ds=%02d_%s_steps=%05d_scale=%06.3f_thresh=%s.p' % (
+    flnm = '%s.ds=%02d_%s_steps=%05d_scale=%06.3f_thresh=%s' % (
         hem.lower(), ds, model,
         steps, scale,
         thresh_str)
+    flnm = flnm + ('.p' if clip is None else '_clip=%d.p' % clip)
     return auto_cache(
         os.path.join(sub, flnm),
-        _register_calc_fn(lambda:subject_prep(sub, hem, ds, model), steps, scale, 
+        _register_calc_fn(lambda:subject_prep(sub, hem, ds, model, clip=clip), steps, scale, 
                           exclusion_threshold))
 
 _sub_cache = {}
-def subject(sub, hem, ds, model='benson17', steps=2000, scale=1.0, exclusion_threshold=None):
+def subject(sub, hem, ds, model='benson17',
+            steps=2000, scale=1.0, exclusion_threshold=None, clip=None):
     '''
     subject(sub, hem, ds) yields a appropriate mesh object for the subject whose subject id is
       given (sub) with data from the appropriate dataset (ds) applied as the properties
@@ -483,7 +489,7 @@ def subject(sub, hem, ds, model='benson17', steps=2000, scale=1.0, exclusion_thr
     tpl = (sub, hem, ds, model, steps, scale, exclusion_threshold)
     if tpl in _sub_cache: return _sub_cache[tpl]
     dat = subject_register(sub, hem, ds, model=model, steps=steps, scale=scale,
-                           exclusion_threshold=exclusion_threshold)
+                           exclusion_threshold=exclusion_threshold, clip=clip)
     pre = dat['prediction']
     hemi = subject_hemi(sub, hem, ds)
     mesh = hemi.sym_sphere_surface.using(
@@ -498,7 +504,7 @@ def subject(sub, hem, ds, model='benson17', steps=2000, scale=1.0, exclusion_thr
     _sub_cache[tpl] = mesh
     return mesh
 
-def save_subject(sub, hem, ds, model='benson17', directory=None, create_directory=True):
+def save_subject(sub, hem, ds, model='benson17', directory=None, create_directory=True, clip=None):
     '''
     save_subject(sub, hem, ds) saves the provided subject's registration data and predictions to the
       <analyses directory>/<subject name> directory; these files are called:
@@ -510,7 +516,7 @@ def save_subject(sub, hem, ds, model='benson17', directory=None, create_director
     options steps and scale are also accepted.
     '''
     model = model.lower()
-    dat = subject(sub, hem, ds, model=model)
+    dat = subject(sub, hem, ds, model=model, clip=clip)
     dr = directory if directory is not None else os.path.join(analyses_path(), sub)
     if not os.path.exists(dr) and create_directory:
         os.makedirs(dr)
@@ -522,7 +528,10 @@ def save_subject(sub, hem, ds, model='benson17', directory=None, create_director
         np.eye(4))
     hmname = hem.lower()
     dsname = '%02d' % ds
-    flnm_pre_tmpl = hmname + '.predict_' + model + '_%s.' + dsname + '.mgz'
+    if clip is None:
+        flnm_pre_tmpl = hmname + '.predict_' + model + '_%s.' + dsname + '.mgz'
+    else:
+        flnm_pre_tmpl = hmname + '.predict_' + model + '_%s_clip='+str(clip)+'.'+dsname + '.mgz'
     img = _surf_mgh(dat.prop('predicted_polar_angle'), np.float32)
     img.to_filename(os.path.join(dr, flnm_pre_tmpl % 'angle'))
     img = _surf_mgh(dat.prop('predicted_eccentricity'), np.float32)
@@ -531,7 +540,11 @@ def save_subject(sub, hem, ds, model='benson17', directory=None, create_director
     img.to_filename(os.path.join(dr, flnm_pre_tmpl % 'varea'))
     # Then, save out registration sphere
     hemname = 'lh' if hem.lower() == 'lh' else 'rhx'
-    flnm_sph = os.path.join(dr, '%s.retinotopy.%s_%s.sphere.reg' % (hemname, model, dsname))
+    flnm_sph = os.path.join(
+        dr,
+        (('%s.retinotopy.%s_%s.sphere.reg' % (hemname, model, dsname))
+         if clip is None else
+         ('%s.retinotopy.%s_%s_clip=%d.sphere.reg' % (hemname, model, dsname, clip))))
     nibabel.freesurfer.write_geometry(flnm_sph, dat.coordinates.T, dat.indexed_faces.T)
     return None
 
