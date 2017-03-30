@@ -692,21 +692,23 @@ def save_subject_cmag(sub, hem, model='benson17', directory=None, create_directo
                        fmt=('%4d','%8.4f','%8.4f','%8.4f','%8.4f','%8.4f'))
     return None
 
-def save_subject_benson14(sub, directory=None, create_directory=True):
+def save_subject_template(sub, template='benson14', directory=None, create_directory=True):
     '''
-    save_subject_benson14(sub) writes out a set of mgz files in the given subject's analyses
+    save_subject_template(sub) writes out a set of mgz files in the given subject's analyses
       directory; the files are the angle, eccen, and varea label files for the subject's left and
       right hemispheres, as predicted by the Benson et al. (2014) template of retinotopy.
+    The option template may be given to specify 'benson14' or 'benson17' models.
     '''
+    template = template.lower()
     fssub = ny.freesurfer_subject(sub)
-    (lhdat, rhdat) = ny.vision.benson14_retinotopy(fssub)
+    (lhdat, rhdat) = ny.vision.predict_retinotopy(fssub, template=template)
     for (hdat,hnm) in [(lhdat,'lh'), (rhdat,'rh')]:
         for (datkey,datname) in [('polar_angle',  'angle'),
                                  ('eccentricity', 'eccen'),
                                  ('visual_area',  'varea')]:
             dat = hdat[datkey]
             flnm = os.path.join(analyses_path(), sub,
-                                hnm + '.' + datname + '_benson14.mgz')
+                                hnm + '.' + datname + '_' + template + '.mgz')
             img = nibabel.freesurfer.mghformat.MGHImage(
                 np.asarray([[dat]], dtype=(np.int32 if datname == 'varea' else np.float32)),
                 np.eye(4))
