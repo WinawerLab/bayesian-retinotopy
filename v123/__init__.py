@@ -686,7 +686,7 @@ def save_subject_cmag(sub, hem, model='benson17', directory=None, create_directo
     # Then, save out the paths; this is done in text files
     if not skip_paths:
         for (k,cm) in s['path'].iteritems():
-            fname = os.path.join(dr, '%s.cmpath_%s_%s%s.dat' % (hem, model, k clipstr))
+            fname = os.path.join(dr, '%s.cmpath_%s_%s%s.dat' % (hem, model, k, clipstr))
             np.savetxt(fname,
                        [(i,a,b,c,d,e)
                         for (i,(spth,vpth)) in zip(range(len(cm)), cm)
