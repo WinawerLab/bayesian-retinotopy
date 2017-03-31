@@ -549,16 +549,16 @@ def save_subject(sub, hem, ds, model='benson17', directory=None, create_director
     return None
 
 _sub_cmag_cache = {}
-def subject_cmag(sub, hem, model='benson17', skip_paths=False, skip_neighborhoods=False):
+def subject_cmag(sub, hem, model='benson17', skip_paths=False, skip_neighborhoods=False, clip=None):
     '''
     subject_cmag(sub, hem) calculates and yields the cortical magnification for the given subject's
       given hemisphere. 
     '''
     model = model.lower()
-    tpl = (sub, hem.lower(), model)
+    tpl = (sub, hem.lower(), model, clip)
     if tpl in _sub_cmag_cache: return _sub_cmag_cache[tpl]
     hemi = subject_hemi(sub, hem, 0)
-    s = subject(sub, hem, 0, model)
+    s = subject(sub, hem, 0, model, clip=clip)
     vlab = s.prop('predicted_visual_area')
     eccs = s.prop('predicted_eccentricity')
     ang0 = s.prop('predicted_polar_angle')
@@ -660,14 +660,15 @@ def subject_cmag(sub, hem, model='benson17', skip_paths=False, skip_neighborhood
     return _sub_cmag_cache[tpl]
 
 def save_subject_cmag(sub, hem, model='benson17', directory=None, create_directory=True,
-                      skip_paths=False, skip_neighborhoods=False):
+                      skip_paths=False, skip_neighborhoods=False, clip=None):
     '''
     save_subject_cmag(sub, hem) saves the data structures found in subject_cmag(sub,hem) out to disk
       in the analyses_path()/<subject name> directory (may be modified with the directory argument).
     '''
     hem = hem.lower()
     model = model.lower()
-    s = subject_cmag(sub, hem, model, skip_paths=skip_paths, skip_neighborhoods=skip_neighborhoods)
+    s = subject_cmag(sub, hem, model, clip=clip,
+                     skip_paths=skip_paths, skip_neighborhoods=skip_neighborhoods)
     dr = directory if directory is not None else os.path.join(analyses_path(), sub)
     if not os.path.exists(dr) and create_directory:
         os.makedirs(dr)
@@ -677,14 +678,15 @@ def save_subject_cmag(sub, hem, model='benson17', directory=None, create_directo
     _surf_mgh = lambda dat, dt: nibabel.freesurfer.mghformat.MGHImage(
         np.asarray([[dat]], dtype=dt),
         np.eye(4))
-    flnm_tmpl = hem + '.cm_' + model + '_%s.mgz'
+    clipstr = '' if clip is None else '_clip=%d' % clip
+    flnm_tmpl = hem + '.cm_' + model + '_%s' + clipstr + '.mgz'
     if not skip_neighborhoods:
         for (nm,vals) in s['neighborhood'].iteritems():
             _surf_mgh(vals, np.float32).to_filename(os.path.join(dr, flnm_tmpl % nm))
     # Then, save out the paths; this is done in text files
     if not skip_paths:
         for (k,cm) in s['path'].iteritems():
-            fname = os.path.join(dr, '%s.cmpath_%s_%s.dat' % (hem, model, k))
+            fname = os.path.join(dr, '%s.cmpath_%s_%s%s.dat' % (hem, model, k clipstr))
             np.savetxt(fname,
                        [(i,a,b,c,d,e)
                         for (i,(spth,vpth)) in zip(range(len(cm)), cm)
