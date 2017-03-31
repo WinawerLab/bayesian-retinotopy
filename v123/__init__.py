@@ -369,7 +369,7 @@ def aggregate_register(model='benson17', steps=2000, scale=1.0, exclusion_thresh
       The result is cached so that it is not recalculated in the future.
 
     The following options are accepted:
-      * steps (default: 500) specifies the number of steps to run in the minimization.
+      * steps (default: 2000) specifies the number of steps to run in the minimization.
       * scale (default: 0.1) specifies the scale of the retinotopy force field term.
     '''
     thresh_str = 'none' if exclusion_threshold is None else \
@@ -486,7 +486,7 @@ def subject(sub, hem, ds, model='benson17',
     '''
     global _sub_cache
     model = model.lower()
-    tpl = (sub, hem, ds, model, steps, scale, exclusion_threshold)
+    tpl = (sub, hem, ds, model, steps, scale, exclusion_threshold, clip)
     if tpl in _sub_cache: return _sub_cache[tpl]
     dat = subject_register(sub, hem, ds, model=model, steps=steps, scale=scale,
                            exclusion_threshold=exclusion_threshold, clip=clip)
