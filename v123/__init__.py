@@ -271,7 +271,8 @@ def subject_prep(sub, hemi, ds, model='benson17', clip=None):
     # We need to get the weights right
     hem = subject_hemi(sub,hemi,ds)
     ws = ny.vision.extract_retinotopy_argument(hem, 'weight', None, default='empirical')
-    if clip is not None: ws[ws > clip] = 0
+    ec = ny.vision.extract_retinotopy_argument(hem, 'eccentricity', None, default='empirical')
+    if clip is not None: ws[ec > clip] = 0
     p = ny.vision.register_retinotopy_initialize(hem, model,
                                                  weight=ws, prior=prior, weight_cutoff=0.1)
     _subject_prep_cache[tpl] = p
