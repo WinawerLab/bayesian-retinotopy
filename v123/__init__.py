@@ -251,6 +251,8 @@ def subject_prep(sub, hemi, ds, model='benson17', clip=None):
     '''
     global _subject_prep_cache
     model = model.lower()
+    if model in ['schira', 'schira10', 'schira2010', 'benson14', 'benson2014']:
+        model = 'schira'
     tpl = (sub,hemi,ds,model,clip)
     if tpl in _subject_prep_cache:
         return _subject_prep_cache[tpl]
@@ -260,7 +262,8 @@ def subject_prep(sub, hemi, ds, model='benson17', clip=None):
     ec = ny.vision.extract_retinotopy_argument(hem, 'eccentricity', None, default='empirical')
     if clip is not None: ws[ec > clip] = 0
     p = ny.vision.register_retinotopy_initialize(hem, model,
-                                                 weight=ws, prior=prior, weight_cutoff=0.1)
+                                                 weight=ws, prior=prior, weight_cutoff=0.1,
+                                                 max_area=(3 if model == 'schira' else None))
     _subject_prep_cache[tpl] = p
     return p
 def aggregate_prep(model='benson17'):
@@ -270,12 +273,15 @@ def aggregate_prep(model='benson17'):
     '''
     global _subject_prep_cache
     model = model.lower()
+    if model in ['schira', 'schira10', 'schira2010', 'benson14', 'benson2014']:
+        model = 'schira'
     tpl = ('agg', model)
     if tpl in _subject_prep_cache: return _subject_prep_cache[tpl]
     p = ny.vision.register_retinotopy_initialize(aggregate_hemi(), model,
                                                  prior=None, resample=None,
                                                  weight_cutoff=0.1,
-                                                 partial_voluming_correction=False)
+                                                 partial_voluming_correction=False,
+                                                 max_area=(3 if model == 'schira' else None))
     _subject_prep_cache[tpl] = p
     return p
 
