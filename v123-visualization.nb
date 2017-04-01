@@ -10,10 +10,10 @@
 NotebookFileLineBreakTest
 NotebookFileLineBreakTest
 NotebookDataPosition[       158,          7]
-NotebookDataLength[    446250,      10424]
-NotebookOptionsPosition[    439713,      10216]
-NotebookOutlinePosition[    440750,      10247]
-CellTagsIndexPosition[    440707,      10244]
+NotebookDataLength[    457833,      10727]
+NotebookOptionsPosition[    450821,      10503]
+NotebookOutlinePosition[    451859,      10534]
+CellTagsIndexPosition[    451816,      10531]
 WindowFrame->Normal*)
 
 (* Beginning of Notebook Content *)
@@ -362,7 +362,351 @@ Cell[BoxData[{
 
 Cell[CellGroupData[{
 
+Cell["Loading Benson14 group-average data", "Section"],
+
+Cell[CellGroupData[{
+
+Cell["Load the raw data into nice data structures", "Subsection"],
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{
+   RowBox[{"ClearAll", "[", 
+    RowBox[{
+    "Benson14Data", ",", " ", "Benson14AnalysesData", ",", " ", 
+     "$Benson14RetinotopyData"}], "]"}], ";"}], 
+  "\[IndentingNewLine]"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{
+   RowBox[{"Options", "[", "Benson14AnalysesData", "]"}], "=", 
+   RowBox[{"{", 
+    RowBox[{
+     RowBox[{"RetinotopyModel", "\[Rule]", "\"\<Benson17\>\""}], ",", 
+     RowBox[{"MaxSteps", "\[Rule]", "2000"}], ",", 
+     RowBox[{"Scale", "\[Rule]", "1"}]}], "}"}]}], 
+  ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{
+   RowBox[{
+    RowBox[{"Options", "[", "Benson14Data", "]"}], "=", 
+    RowBox[{"Options", "[", "Benson14AnalysesData", "]"}]}], ";"}], 
+  "\[IndentingNewLine]"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"MemoizeSafe", "[", "\[IndentingNewLine]", 
+   RowBox[{
+    RowBox[{"$Benson14RetinotopyData", ":=", 
+     RowBox[{"Association", "@", 
+      RowBox[{"MapThread", "[", "\[IndentingNewLine]", 
+       RowBox[{
+        RowBox[{"Function", "@", 
+         RowBox[{"Rule", "[", "\[IndentingNewLine]", 
+          RowBox[{"#2", ",", "\[IndentingNewLine]", 
+           RowBox[{"Import", "[", "\[IndentingNewLine]", 
+            RowBox[{
+             RowBox[{"FileNameJoin", "[", 
+              RowBox[{"{", 
+               RowBox[{"$RetinotopyRoot", ",", "\"\<aggregate\>\"", ",", 
+                RowBox[{"#1", "<>", "\"\<.mgz\>\""}]}], "}"}], "]"}], ",", 
+             "\[IndentingNewLine]", 
+             RowBox[{"{", 
+              RowBox[{"\"\<GZIP\>\"", ",", "\"\<MGH\>\""}], "}"}]}], "]"}]}], 
+          "]"}]}], ",", "\[IndentingNewLine]", 
+        RowBox[{"{", 
+         RowBox[{
+          RowBox[{"{", 
+           RowBox[{
+           "\"\<angle\>\"", ",", "\"\<eccen\>\"", ",", "\"\<weight\>\""}], 
+           "}"}], ",", "\[IndentingNewLine]", 
+          RowBox[{"{", 
+           RowBox[{
+           "\"\<PolarAngle\>\"", ",", "\"\<Eccentricity\>\"", ",", 
+            "\"\<Weight\>\""}], "}"}]}], "}"}]}], "]"}]}]}], ",", 
+    "\[IndentingNewLine]", 
+    RowBox[{
+     RowBox[{"Benson14AnalysesData", "[", 
+      RowBox[{"opts", ":", 
+       RowBox[{"OptionsPattern", "[", "]"}]}], "]"}], ":=", 
+     RowBox[{"With", "[", "\[IndentingNewLine]", 
+      RowBox[{
+       RowBox[{"{", 
+        RowBox[{
+         RowBox[{"mdlString", "=", 
+          RowBox[{"ToLowerCase", "@", 
+           RowBox[{"Replace", "[", "\[IndentingNewLine]", 
+            RowBox[{
+             RowBox[{"OptionValue", "[", "RetinotopyModel", "]"}], ",", 
+             "\[IndentingNewLine]", 
+             RowBox[{"Automatic", "\[Rule]", "\"\<benson17\>\""}]}], 
+            "]"}]}]}], ",", "\[IndentingNewLine]", 
+         RowBox[{"steps", "=", 
+          RowBox[{"OptionValue", "[", "MaxSteps", "]"}]}], ",", 
+         "\[IndentingNewLine]", 
+         RowBox[{"scale", "=", 
+          RowBox[{"OptionValue", "[", "Scale", "]"}]}]}], "}"}], ",", 
+       "\[IndentingNewLine]", 
+       RowBox[{"Association", "@", 
+        RowBox[{"MapThread", "[", "\[IndentingNewLine]", 
+         RowBox[{
+          RowBox[{"Function", "@", 
+           RowBox[{"Rule", "[", "\[IndentingNewLine]", 
+            RowBox[{"#2", ",", "\[IndentingNewLine]", 
+             RowBox[{"Import", "[", "\[IndentingNewLine]", 
+              RowBox[{
+               RowBox[{"FileNameJoin", "[", "\[IndentingNewLine]", 
+                RowBox[{"{", 
+                 RowBox[{"$AnalysesRoot", ",", "\"\<aggregate\>\"", ",", 
+                  RowBox[{"StringJoin", "@", 
+                   RowBox[{"List", "[", "\[IndentingNewLine]", 
+                    RowBox[{
+                    "\"\<lh.predict_\>\"", ",", "#1", ",", "\"\<.\>\"", ",", 
+                    "mdlString", ",", "\"\<_\>\"", ",", 
+                    "\[IndentingNewLine]", "\"\<steps=\>\"", ",", 
+                    RowBox[{"IntegerString", "[", 
+                    RowBox[{"steps", ",", "10", ",", "5"}], "]"}], ",", 
+                    "\[IndentingNewLine]", "\"\<_scale=\>\"", ",", 
+                    RowBox[{"ToString", "@", 
+                    RowBox[{"NumberForm", "[", 
+                    RowBox[{"scale", ",", 
+                    RowBox[{"{", 
+                    RowBox[{"3", ",", "2"}], "}"}], ",", 
+                    RowBox[{"NumberPadding", "\[Rule]", 
+                    RowBox[{"{", 
+                    RowBox[{"\"\<0\>\"", ",", "\"\<0\>\""}], "}"}]}]}], 
+                    "]"}]}], ",", "\[IndentingNewLine]", "\"\<.mgz\>\""}], 
+                    "]"}]}]}], "}"}], "]"}], ",", "\[IndentingNewLine]", 
+               RowBox[{"{", 
+                RowBox[{"\"\<GZIP\>\"", ",", "\"\<MGH\>\""}], "}"}]}], 
+              "]"}]}], "]"}]}], ",", "\[IndentingNewLine]", 
+          RowBox[{"{", 
+           RowBox[{
+            RowBox[{"{", 
+             RowBox[{
+             "\"\<angle\>\"", ",", "\"\<eccen\>\"", ",", "\"\<varea\>\""}], 
+             "}"}], ",", "\[IndentingNewLine]", 
+            RowBox[{"{", 
+             RowBox[{
+             "\"\<PolarAngle\>\"", ",", "\"\<Eccentricity\>\"", ",", 
+              "\"\<VisualArea\>\""}], "}"}]}], "}"}]}], "]"}]}]}], "]"}]}], 
+    ",", "\[IndentingNewLine]", 
+    RowBox[{
+     RowBox[{"Benson14Data", "[", 
+      RowBox[{"opts", ":", 
+       RowBox[{"OptionsPattern", "[", "]"}]}], "]"}], ":=", 
+     RowBox[{"With", "[", "\[IndentingNewLine]", 
+      RowBox[{
+       RowBox[{"{", 
+        RowBox[{
+         RowBox[{"rdata", "=", "$Benson14RetinotopyData"}], ",", 
+         "\[IndentingNewLine]", 
+         RowBox[{"adata", "=", 
+          RowBox[{"WithOptions", "[", 
+           RowBox[{
+            RowBox[{"Benson14AnalysesData", "[", "]"}], ",", "opts"}], 
+           "]"}]}]}], "}"}], ",", "\[IndentingNewLine]", 
+       RowBox[{"Join", "[", "\[IndentingNewLine]", 
+        RowBox[{"rdata", ",", "\[IndentingNewLine]", 
+         RowBox[{"Association", "@", 
+          RowBox[{"KeyValueMap", "[", "\[IndentingNewLine]", 
+           RowBox[{
+            RowBox[{"Function", "[", 
+             RowBox[{
+              RowBox[{"(", 
+               RowBox[{"\"\<Predicted\>\"", "<>", "#1"}], ")"}], "\[Rule]", 
+              "#2"}], "]"}], ",", "\[IndentingNewLine]", "adata"}], "]"}]}]}],
+         "]"}]}], "]"}]}]}], "]"}], ";"}]}], "Input"]
+}, Closed]],
+
+Cell[CellGroupData[{
+
+Cell["Apply the data to meshes and maps", "Subsection"],
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{
+   RowBox[{"ClearAll", "[", 
+    RowBox[{"$SymMapTemplate", ",", "SymToMap"}], "]"}], ";"}], 
+  "\[IndentingNewLine]"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{
+   RowBox[{"SymToMap", "::", "usage"}], "=", 
+   "\"\<SymToMap[mesh, hemi] projects the given fsaverage_sym-aligned \
+spherical mesh to a map; if hemi is RH, then reverses this so that it \
+resembles a right-hemisphere projection.\>\""}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{
+   RowBox[{
+    RowBox[{"$SymMapTemplate", "::", "usage"}], "=", 
+    "\"\<$SymMapTemplate is a template map for projecting a Sym hemisphere to \
+a map of the visual cortex; see also SymToMap.\>\""}], ";"}], 
+  "\[IndentingNewLine]"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{
+   RowBox[{"MemoizeSafe", "[", "\[IndentingNewLine]", 
+    RowBox[{"$SymMapTemplate", ":=", 
+     RowBox[{"CorticalMap", "[", "\[IndentingNewLine]", 
+      RowBox[{
+       RowBox[{"Cortex", "[", 
+        RowBox[{
+         RowBox[{"$FreeSurferSubjects", "[", "\"\<fsaverage_sym\>\"", "]"}], 
+         ",", "LH", ",", "\"\<Sphere\>\""}], "]"}], ",", 
+       "\[IndentingNewLine]", 
+       RowBox[{"Center", "\[Rule]", 
+        RowBox[{"{", 
+         RowBox[{
+          RowBox[{"{", 
+           RowBox[{
+            RowBox[{"-", "7.03"}], ",", 
+            RowBox[{"-", "82.59"}], ",", 
+            RowBox[{"-", "55.94"}]}], "}"}], ",", 
+          RowBox[{"{", 
+           RowBox[{"2.98", ",", 
+            RowBox[{"-", "78.78"}], ",", 
+            RowBox[{"-", "61.52"}]}], "}"}]}], "}"}]}], ",", 
+       "\[IndentingNewLine]", 
+       RowBox[{"Method", "\[Rule]", "\"\<Orthographic\>\""}], ",", 
+       "\[IndentingNewLine]", 
+       RowBox[{"Radius", "\[Rule]", 
+        RowBox[{"Quantity", "[", 
+         RowBox[{
+          RowBox[{"N", "[", 
+           RowBox[{"Pi", "/", "2.5"}], "]"}], ",", "\"\<Radians\>\""}], 
+         "]"}]}]}], "]"}]}], "]"}], ";"}], 
+  "\[IndentingNewLine]"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"ClearAll", "[", "SymToMap", "]"}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{
+   RowBox[{"SymToMap", "[", 
+    RowBox[{"mesh_", ",", 
+     RowBox[{"hemi", ":", 
+      RowBox[{"LH", "|", "RH"}], ":", "LH"}]}], "]"}], ":=", 
+   RowBox[{"With", "[", "\[IndentingNewLine]", 
+    RowBox[{
+     RowBox[{"{", 
+      RowBox[{"map0", "=", 
+       RowBox[{"CorticalMap", "[", "\[IndentingNewLine]", 
+        RowBox[{
+         RowBox[{"SetVertexProperties", "[", "\[IndentingNewLine]", 
+          RowBox[{"$SymMapTemplate", ",", "\[IndentingNewLine]", 
+           RowBox[{"With", "[", "\[IndentingNewLine]", 
+            RowBox[{
+             RowBox[{"{", 
+              RowBox[{"u", "=", 
+               RowBox[{"VertexList", "[", "$SymMapTemplate", "]"}]}], "}"}], 
+             ",", "\[IndentingNewLine]", 
+             RowBox[{"dbg", "=", 
+              RowBox[{"Table", "[", "\[IndentingNewLine]", 
+               RowBox[{
+                RowBox[{"p", "\[Rule]", 
+                 RowBox[{"(", 
+                  RowBox[{
+                   RowBox[{"(", 
+                    RowBox[{"p", "/.", "mesh"}], ")"}], "[", 
+                   RowBox[{"[", "u", "]"}], "]"}], ")"}]}], ",", 
+                "\[IndentingNewLine]", 
+                RowBox[{"{", 
+                 RowBox[{"p", ",", 
+                  RowBox[{"Cases", "[", "\[IndentingNewLine]", 
+                   RowBox[{
+                    RowBox[{"VertexPropertyList", "[", "mesh", "]"}], ",", 
+                    "\[IndentingNewLine]", 
+                    RowBox[{"Except", "[", 
+                    RowBox[{
+                    "\"\<VertexIndex\>\"", "|", "\"\<VertexCoordinates\>\"", 
+                    "|", "\"\<VertexNormals\>\""}], "]"}]}], "]"}]}], "}"}]}],
+                "]"}]}]}], "]"}]}], "]"}], ",", "\[IndentingNewLine]", 
+         RowBox[{"MetaInformation", "\[Rule]", 
+          RowBox[{"MetaInformation", "[", "mesh", "]"}]}]}], "]"}]}], "}"}], 
+     ",", "\[IndentingNewLine]", 
+     RowBox[{"If", "[", 
+      RowBox[{
+       RowBox[{"hemi", "===", "LH"}], ",", "\[IndentingNewLine]", "map0", ",",
+        "\[IndentingNewLine]", 
+       RowBox[{"CorticalMap", "[", 
+        RowBox[{"map0", ",", 
+         RowBox[{"VertexCoordinates", "\[Rule]", 
+          RowBox[{"Transpose", "[", 
+           RowBox[{
+            RowBox[{"{", 
+             RowBox[{
+              RowBox[{"-", "1"}], ",", "1"}], "}"}], "*", 
+            RowBox[{"VertexCoordinatesTr", "[", "map0", "]"}]}], "]"}]}]}], 
+        "]"}]}], "]"}]}], "]"}]}], ";"}]}], "Input"],
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"ClearAll", "[", "Benson14Mesh", "]"}], 
+  ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{
+   RowBox[{"Options", "[", "Benson14Mesh", "]"}], "=", 
+   RowBox[{"Options", "[", "Benson14Data", "]"}]}], 
+  ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"MemoizeSafe", "[", "\[IndentingNewLine]", 
+   RowBox[{
+    RowBox[{"Benson14Mesh", "[", 
+     RowBox[{
+      RowBox[{"surf_String:", "\"\<Inflated\>\""}], ",", 
+      RowBox[{"opts", ":", 
+       RowBox[{"OptionsPattern", "[", "]"}]}]}], "]"}], ":=", 
+    RowBox[{"With", "[", "\[IndentingNewLine]", 
+     RowBox[{
+      RowBox[{"{", 
+       RowBox[{
+        RowBox[{"sdat", "=", 
+         RowBox[{"WithOptions", "[", 
+          RowBox[{
+           RowBox[{"Benson14Data", "[", "]"}], ",", "opts"}], "]"}]}], ",", 
+        "\[IndentingNewLine]", 
+        RowBox[{"msh", "=", 
+         RowBox[{"Cortex", "[", 
+          RowBox[{
+           RowBox[{"$FreeSurferSubjects", "[", "\"\<fsaverage_sym\>\"", "]"}],
+            ",", "LH", ",", "surf"}], "]"}]}]}], "}"}], ",", 
+      "\[IndentingNewLine]", 
+      RowBox[{"SetVertexProperties", "[", 
+       RowBox[{"msh", ",", 
+        RowBox[{"Normal", "[", "sdat", "]"}]}], "]"}]}], "]"}]}], "]"}], 
+  ";"}]}], "Input"],
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{
+   RowBox[{"ClearAll", "[", "Benson14Map", "]"}], ";"}], 
+  "\[IndentingNewLine]"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{
+   RowBox[{
+    RowBox[{"Options", "[", "Benson14Map", "]"}], "=", 
+    RowBox[{"Options", "[", "Benson14Mesh", "]"}]}], ";"}], 
+  "\[IndentingNewLine]"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"MemoizeSafe", "[", "\[IndentingNewLine]", 
+   RowBox[{
+    RowBox[{"Benson14Map", "[", 
+     RowBox[{
+      RowBox[{"hemi", ":", 
+       RowBox[{"LH", "|", "RH"}], ":", "LH"}], ",", 
+      RowBox[{"opts", ":", 
+       RowBox[{"OptionsPattern", "[", "]"}]}]}], "]"}], ":=", 
+    RowBox[{"SymToMap", "[", "\[IndentingNewLine]", 
+     RowBox[{
+      RowBox[{"WithOptions", "[", 
+       RowBox[{
+        RowBox[{"Benson14Mesh", "[", "\"\<Sphere\>\"", "]"}], ",", "opts"}], 
+       "]"}], ",", "\[IndentingNewLine]", "hemi"}], "]"}]}], "]"}], 
+  ";"}]}], "Input"]
+}, Closed]]
+}, Closed]],
+
+Cell[CellGroupData[{
+
 Cell["Loading subject surface data", "Section"],
+
+Cell[CellGroupData[{
+
+Cell["Load the raw data into data structures", "Subsection"],
 
 Cell["\<\
 These cells just import the mgz files in the analyses directory and organize \
@@ -1031,7 +1375,7 @@ SubjectMap, and similar; it specifies that either the \\\"Benson17\\\" \
 
 Cell[CellGroupData[{
 
-Cell["Loading subject meshes and maps", "Section"],
+Cell["Apply the data to subject meshes and maps", "Subsection"],
 
 Cell["Here we just cache the FreeSurfer subject objects.", "Text"],
 
@@ -1100,65 +1444,7 @@ found in the standard.ffm.gz file distributed with the Neuropythy library \
 Cell[BoxData[{
  RowBox[{
   RowBox[{
-   RowBox[{"ClearAll", "[", 
-    RowBox[{"SymToMap", ",", "SubjectMap"}], "]"}], ";"}], 
-  "\[IndentingNewLine]"}], "\[IndentingNewLine]", 
- RowBox[{
-  RowBox[{
-   RowBox[{
-    RowBox[{"SymToMap", "::", "usage"}], "=", 
-    "\"\<SymToMap[mesh, hemi] projects the given fsaverage_sym-aligned \
-spherical mesh to a map; if hemi is RH, then reverses this so that it \
-resembles a right-hemisphere projection.\>\""}], ";"}], 
-  "\[IndentingNewLine]"}], "\[IndentingNewLine]", 
- RowBox[{
-  RowBox[{
-   RowBox[{
-    RowBox[{"SymToMap", "[", 
-     RowBox[{"mesh_", ",", 
-      RowBox[{"hemi", ":", 
-       RowBox[{"LH", "|", "RH"}]}]}], "]"}], ":=", 
-    RowBox[{"With", "[", "\[IndentingNewLine]", 
-     RowBox[{
-      RowBox[{"{", 
-       RowBox[{"map0", "=", 
-        RowBox[{"CorticalMap", "[", "\[IndentingNewLine]", 
-         RowBox[{"mesh", ",", "\[IndentingNewLine]", 
-          RowBox[{"Center", "\[Rule]", 
-           RowBox[{"{", 
-            RowBox[{
-             RowBox[{"{", 
-              RowBox[{
-               RowBox[{"-", "7.03"}], ",", 
-               RowBox[{"-", "82.59"}], ",", 
-               RowBox[{"-", "55.94"}]}], "}"}], ",", 
-             RowBox[{"{", 
-              RowBox[{"2.98", ",", 
-               RowBox[{"-", "78.78"}], ",", 
-               RowBox[{"-", "61.52"}]}], "}"}]}], "}"}]}], ",", 
-          "\[IndentingNewLine]", 
-          RowBox[{"Method", "\[Rule]", "\"\<Orthographic\>\""}], ",", 
-          "\[IndentingNewLine]", 
-          RowBox[{"Radius", "\[Rule]", 
-           RowBox[{"Quantity", "[", 
-            RowBox[{
-             RowBox[{"N", "[", 
-              RowBox[{"Pi", "/", "2.5"}], "]"}], ",", "\"\<Radians\>\""}], 
-            "]"}]}]}], "]"}]}], "}"}], ",", "\[IndentingNewLine]", 
-      RowBox[{"If", "[", 
-       RowBox[{
-        RowBox[{"hemi", "===", "LH"}], ",", "\[IndentingNewLine]", "map0", 
-        ",", "\[IndentingNewLine]", 
-        RowBox[{"CorticalMap", "[", 
-         RowBox[{"map0", ",", 
-          RowBox[{"VertexCoordinates", "\[Rule]", 
-           RowBox[{"Transpose", "[", 
-            RowBox[{
-             RowBox[{"{", 
-              RowBox[{
-               RowBox[{"-", "1"}], ",", "1"}], "}"}], "*", 
-             RowBox[{"VertexCoordinatesTr", "[", "map0", "]"}]}], "]"}]}]}], 
-         "]"}]}], "]"}]}], "]"}]}], ";"}], 
+   RowBox[{"ClearAll", "[", "SubjectMap", "]"}], ";"}], 
   "\[IndentingNewLine]"}], "\[IndentingNewLine]", 
  RowBox[{
   RowBox[{
@@ -1183,6 +1469,7 @@ resembles a right-hemisphere projection.\>\""}], ";"}],
          RowBox[{"sub", ",", "hemi", ",", "\"\<Sym\>\"", ",", "ds"}], "]"}], 
         ",", "opts"}], "]"}], ",", "\[IndentingNewLine]", "hemi"}], "]"}]}], 
    "]"}], ";"}]}], "Input"]
+}, Closed]]
 }, Closed]],
 
 Cell[CellGroupData[{
@@ -10215,10 +10502,10 @@ Cell[BoxData[{
 }, Open  ]]
 },
 WindowSize->{937, 781},
-WindowMargins->{{Automatic, 58}, {Automatic, 92}},
+WindowMargins->{{Automatic, 21}, {Automatic, 0}},
 TrackCellChangeTimes->False,
-FrontEndVersion->"11.0 for Mac OS X x86 (32-bit, 64-bit Kernel) (July 28, \
-2016)",
+FrontEndVersion->"10.1 for Mac OS X x86 (32-bit, 64-bit Kernel) (March 23, \
+2015)",
 StyleDefinitions->Notebook[{
    Cell[
     StyleData[StyleDefinitions -> "Default.nb"]], 
@@ -10232,7 +10519,7 @@ StyleDefinitions->Notebook[{
     24, FontColor -> 
     RGBColor[0.7529411764705882, 0.15294117647058825`, 
       0.12156862745098039`]]}, Visible -> False, FrontEndVersion -> 
-  "11.0 for Mac OS X x86 (32-bit, 64-bit Kernel) (July 28, 2016)", 
+  "10.1 for Mac OS X x86 (32-bit, 64-bit Kernel) (March 23, 2015)", 
   StyleDefinitions -> "PrivateStylesheetFormatting.nb"]
 ]
 (* End of Notebook Content *)
@@ -10253,7 +10540,7 @@ Cell[CellGroupData[{
 Cell[1615, 65, 25, 0, 63, "Chapter"],
 Cell[1643, 67, 499, 9, 144, "Text"],
 Cell[CellGroupData[{
-Cell[2167, 80, 34, 0, 63, "Subchapter"],
+Cell[2167, 80, 34, 0, 62, "Subchapter"],
 Cell[CellGroupData[{
 Cell[2226, 84, 31, 0, 55, "Section"],
 Cell[2260, 86, 115, 2, 54, "Input"]
@@ -10269,7 +10556,7 @@ Cell[7519, 224, 597, 14, 117, "Input"]
 }, Closed]]
 }, Closed]],
 Cell[CellGroupData[{
-Cell[8165, 244, 36, 0, 47, "Subchapter"],
+Cell[8165, 244, 36, 0, 46, "Subchapter"],
 Cell[8204, 246, 169, 3, 49, "Text"],
 Cell[CellGroupData[{
 Cell[8398, 253, 39, 0, 55, "Section"],
@@ -10278,149 +10565,165 @@ Cell[10516, 310, 116, 3, 30, "Text"],
 Cell[10635, 315, 1600, 44, 180, "Input"]
 }, Closed]],
 Cell[CellGroupData[{
-Cell[12272, 364, 47, 0, 41, "Section"],
-Cell[12322, 366, 141, 3, 30, "Text"],
-Cell[12466, 371, 30399, 657, 3603, "Input"]
+Cell[12272, 364, 54, 0, 41, "Section"],
+Cell[CellGroupData[{
+Cell[12351, 368, 65, 0, 44, "Subsection"],
+Cell[12419, 370, 6230, 145, 720, "Input"]
 }, Closed]],
 Cell[CellGroupData[{
-Cell[42902, 1033, 50, 0, 41, "Section"],
-Cell[42955, 1035, 66, 0, 30, "Text"],
-Cell[43024, 1037, 420, 11, 75, "Input"],
-Cell[43447, 1050, 113, 3, 30, "Text"],
-Cell[43563, 1055, 1339, 36, 159, "Input"],
-Cell[44905, 1093, 223, 4, 49, "Text"],
-Cell[45131, 1099, 3239, 85, 474, "Input"]
-}, Closed]],
-Cell[CellGroupData[{
-Cell[48407, 1189, 59, 0, 41, "Section"],
-Cell[48469, 1191, 13453, 298, 1314, "Input"],
-Cell[61925, 1491, 3706, 86, 390, "Input"],
-Cell[65634, 1579, 4350, 102, 516, "Input"]
+Cell[18686, 520, 55, 0, 36, "Subsection"],
+Cell[18744, 522, 4533, 111, 569, "Input"],
+Cell[23280, 635, 1256, 35, 142, "Input"],
+Cell[24539, 672, 925, 26, 194, "Input"]
 }, Closed]]
 }, Closed]],
 Cell[CellGroupData[{
-Cell[70033, 1687, 138, 2, 47, "Subchapter"],
+Cell[25513, 704, 47, 0, 41, "Section"],
 Cell[CellGroupData[{
-Cell[70196, 1693, 143, 2, 55, "Section"],
-Cell[CellGroupData[{
-Cell[70364, 1699, 48, 0, 44, "Subsection"],
-Cell[70415, 1701, 701, 19, 117, "Input"]
+Cell[25585, 708, 60, 0, 44, "Subsection"],
+Cell[25648, 710, 141, 3, 30, "Text"],
+Cell[25792, 715, 30399, 657, 2936, "Input"]
 }, Closed]],
 Cell[CellGroupData[{
-Cell[71153, 1725, 165, 2, 36, "Subsection"],
-Cell[71321, 1729, 4020, 104, 537, "Input"]
+Cell[56228, 1377, 63, 0, 36, "Subsection"],
+Cell[56294, 1379, 66, 0, 30, "Text"],
+Cell[56363, 1381, 420, 11, 74, "Input"],
+Cell[56786, 1394, 113, 3, 30, "Text"],
+Cell[56902, 1399, 1339, 36, 143, "Input"],
+Cell[58244, 1437, 223, 4, 49, "Text"],
+Cell[58470, 1443, 996, 27, 160, "Input"]
+}, Closed]]
 }, Closed]],
 Cell[CellGroupData[{
-Cell[75378, 1838, 103, 1, 36, "Subsection"],
-Cell[75484, 1841, 24944, 577, 3372, "Input"]
+Cell[59515, 1476, 59, 0, 41, "Section"],
+Cell[59577, 1478, 13453, 298, 1314, "Input"],
+Cell[73033, 1778, 3706, 86, 390, "Input"],
+Cell[76742, 1866, 4350, 102, 516, "Input"]
+}, Closed]]
 }, Closed]],
 Cell[CellGroupData[{
-Cell[100465, 2423, 128, 1, 36, "Subsection"],
-Cell[100596, 2426, 6152, 162, 600, "Input"]
+Cell[81141, 1974, 138, 2, 46, "Subchapter"],
+Cell[CellGroupData[{
+Cell[81304, 1980, 143, 2, 55, "Section"],
+Cell[CellGroupData[{
+Cell[81472, 1986, 48, 0, 44, "Subsection"],
+Cell[81523, 1988, 701, 19, 117, "Input"]
 }, Closed]],
 Cell[CellGroupData[{
-Cell[106785, 2593, 37, 0, 36, "Subsection"],
-Cell[106825, 2595, 119, 3, 30, "Text"],
-Cell[106947, 2600, 691, 20, 97, "Input"]
+Cell[82261, 2012, 165, 2, 36, "Subsection"],
+Cell[82429, 2016, 4020, 104, 537, "Input"]
 }, Closed]],
 Cell[CellGroupData[{
-Cell[107675, 2625, 52, 0, 36, "Subsection"],
-Cell[CellGroupData[{
-Cell[107752, 2629, 104, 2, 35, "Subsubsection"],
-Cell[107859, 2633, 11667, 267, 1020, "Input"]
+Cell[86486, 2125, 103, 1, 36, "Subsection"],
+Cell[86592, 2128, 24944, 577, 2745, "Input"]
 }, Closed]],
 Cell[CellGroupData[{
-Cell[119563, 2905, 46, 0, 29, "Subsubsection"],
-Cell[119612, 2907, 76, 0, 30, "Text"],
-Cell[119691, 2909, 1282, 32, 138, "Input"],
-Cell[120976, 2943, 55, 0, 30, "Text"],
-Cell[121034, 2945, 5752, 132, 600, "Input"],
-Cell[126789, 3079, 76, 0, 30, "Text"],
-Cell[126868, 3081, 5973, 135, 642, "Input"],
-Cell[132844, 3218, 66, 0, 30, "Text"],
-Cell[132913, 3220, 13397, 318, 1188, "Input"]
+Cell[111573, 2710, 128, 1, 36, "Subsection"],
+Cell[111704, 2713, 6152, 162, 600, "Input"]
+}, Closed]],
+Cell[CellGroupData[{
+Cell[117893, 2880, 37, 0, 36, "Subsection"],
+Cell[117933, 2882, 119, 3, 30, "Text"],
+Cell[118055, 2887, 691, 20, 97, "Input"]
+}, Closed]],
+Cell[CellGroupData[{
+Cell[118783, 2912, 52, 0, 36, "Subsection"],
+Cell[CellGroupData[{
+Cell[118860, 2916, 104, 2, 35, "Subsubsection"],
+Cell[118967, 2920, 11667, 267, 1020, "Input"]
+}, Closed]],
+Cell[CellGroupData[{
+Cell[130671, 3192, 46, 0, 29, "Subsubsection"],
+Cell[130720, 3194, 76, 0, 30, "Text"],
+Cell[130799, 3196, 1282, 32, 138, "Input"],
+Cell[132084, 3230, 55, 0, 30, "Text"],
+Cell[132142, 3232, 5752, 132, 600, "Input"],
+Cell[137897, 3366, 76, 0, 30, "Text"],
+Cell[137976, 3368, 5973, 135, 642, "Input"],
+Cell[143952, 3505, 66, 0, 30, "Text"],
+Cell[144021, 3507, 13397, 318, 1188, "Input"]
 }, Closed]]
 }, Closed]]
 }, Closed]],
 Cell[CellGroupData[{
-Cell[146371, 3545, 39, 0, 41, "Section"],
-Cell[146413, 3547, 19164, 434, 1860, "Input"],
-Cell[165580, 3983, 3608, 81, 558, "Input"]
+Cell[157479, 3832, 39, 0, 41, "Section"],
+Cell[157521, 3834, 19164, 434, 1860, "Input"],
+Cell[176688, 4270, 3608, 81, 558, "Input"]
 }, Closed]],
 Cell[CellGroupData[{
-Cell[169225, 4069, 57, 0, 41, "Section"],
-Cell[169285, 4071, 6186, 130, 537, "Input"],
-Cell[175474, 4203, 9016, 211, 915, "Input"]
+Cell[180333, 4356, 57, 0, 41, "Section"],
+Cell[180393, 4358, 6186, 130, 537, "Input"],
+Cell[186582, 4490, 9016, 211, 915, "Input"]
 }, Closed]],
 Cell[CellGroupData[{
-Cell[184527, 4419, 88, 2, 41, "Section"],
-Cell[184618, 4423, 231, 4, 49, "Text"],
+Cell[195635, 4706, 88, 2, 41, "Section"],
+Cell[195726, 4710, 231, 4, 49, "Text"],
 Cell[CellGroupData[{
-Cell[184874, 4431, 48, 0, 44, "Subsection"],
-Cell[184925, 4433, 102, 2, 30, "Text"],
-Cell[185030, 4437, 10040, 239, 1419, "Input"]
+Cell[195982, 4718, 48, 0, 44, "Subsection"],
+Cell[196033, 4720, 102, 2, 30, "Text"],
+Cell[196138, 4724, 10040, 239, 1419, "Input"]
 }, Closed]],
 Cell[CellGroupData[{
-Cell[195107, 4681, 58, 0, 36, "Subsection"],
-Cell[195168, 4683, 266, 5, 68, "Text"],
-Cell[195437, 4690, 34941, 753, 3099, "Input"]
+Cell[206215, 4968, 58, 0, 36, "Subsection"],
+Cell[206276, 4970, 266, 5, 68, "Text"],
+Cell[206545, 4977, 34941, 753, 3099, "Input"]
 }, Closed]],
 Cell[CellGroupData[{
-Cell[230415, 5448, 56, 0, 36, "Subsection"],
-Cell[230474, 5450, 24418, 547, 2343, "Input"]
+Cell[241523, 5735, 56, 0, 36, "Subsection"],
+Cell[241582, 5737, 24418, 547, 2343, "Input"]
 }, Closed]],
 Cell[CellGroupData[{
-Cell[254929, 6002, 60, 0, 36, "Subsection"],
-Cell[254992, 6004, 27056, 592, 2469, "Input"]
+Cell[266037, 6289, 60, 0, 36, "Subsection"],
+Cell[266100, 6291, 27056, 592, 2469, "Input"]
 }, Closed]],
 Cell[CellGroupData[{
-Cell[282085, 6601, 77, 0, 36, "Subsection"],
-Cell[282165, 6603, 132, 3, 30, "Text"],
-Cell[282300, 6608, 35718, 764, 3561, "Input"]
+Cell[293193, 6888, 77, 0, 36, "Subsection"],
+Cell[293273, 6890, 132, 3, 30, "Text"],
+Cell[293408, 6895, 35718, 764, 3561, "Input"]
 }, Closed]],
 Cell[CellGroupData[{
-Cell[318055, 7377, 66, 0, 36, "Subsection"],
-Cell[318124, 7379, 6957, 168, 579, "Input"]
+Cell[329163, 7664, 66, 0, 36, "Subsection"],
+Cell[329232, 7666, 6957, 168, 579, "Input"]
 }, Closed]]
 }, Closed]]
 }, Closed]]
 }, Open  ]],
 Cell[CellGroupData[{
-Cell[325154, 7555, 23, 0, 74, "Chapter"],
-Cell[325180, 7557, 130, 3, 30, "Text"],
+Cell[336262, 7842, 23, 0, 74, "Chapter"],
+Cell[336288, 7844, 130, 3, 30, "Text"],
 Cell[CellGroupData[{
-Cell[325335, 7564, 29, 0, 63, "Subchapter"],
+Cell[336443, 7851, 29, 0, 62, "Subchapter"],
 Cell[CellGroupData[{
-Cell[325389, 7568, 37, 0, 55, "Section"],
-Cell[325429, 7570, 12046, 272, 1230, "Input"]
+Cell[336497, 7855, 37, 0, 55, "Section"],
+Cell[336537, 7857, 12046, 272, 1230, "Input"]
 }, Closed]],
 Cell[CellGroupData[{
-Cell[337512, 7847, 57, 0, 41, "Section"],
-Cell[337572, 7849, 158, 3, 30, "Text"],
+Cell[348620, 8134, 57, 0, 41, "Section"],
+Cell[348680, 8136, 158, 3, 30, "Text"],
 Cell[CellGroupData[{
-Cell[337755, 7856, 42, 0, 44, "Subsection"],
-Cell[337800, 7858, 23650, 524, 1986, "Input"],
-Cell[361453, 8384, 24099, 550, 1923, "Input"],
-Cell[385555, 8936, 1453, 37, 201, "Input"]
+Cell[348863, 8143, 42, 0, 44, "Subsection"],
+Cell[348908, 8145, 23650, 524, 1986, "Input"],
+Cell[372561, 8671, 24099, 550, 1923, "Input"],
+Cell[396663, 9223, 1453, 37, 201, "Input"]
 }, Closed]],
 Cell[CellGroupData[{
-Cell[387045, 8978, 54, 0, 36, "Subsection"],
-Cell[387102, 8980, 6546, 158, 747, "Input"]
+Cell[398153, 9265, 54, 0, 36, "Subsection"],
+Cell[398210, 9267, 6546, 158, 747, "Input"]
 }, Closed]],
 Cell[CellGroupData[{
-Cell[393685, 9143, 41, 0, 36, "Subsection"],
-Cell[393729, 9145, 4818, 119, 474, "Input"]
+Cell[404793, 9430, 41, 0, 36, "Subsection"],
+Cell[404837, 9432, 4818, 119, 474, "Input"]
 }, Closed]]
 }, Closed]],
 Cell[CellGroupData[{
-Cell[398596, 9270, 41, 0, 41, "Section"],
+Cell[409704, 9557, 41, 0, 41, "Section"],
 Cell[CellGroupData[{
-Cell[398662, 9274, 79, 0, 44, "Subsection"],
-Cell[398744, 9276, 31357, 691, 2553, "Input"]
+Cell[409770, 9561, 79, 0, 44, "Subsection"],
+Cell[409852, 9563, 31357, 691, 2553, "Input"]
 }, Closed]],
 Cell[CellGroupData[{
-Cell[430138, 9972, 50, 0, 36, "Subsection"],
-Cell[430191, 9974, 9458, 235, 982, "Input"]
+Cell[441246, 10259, 50, 0, 36, "Subsection"],
+Cell[441299, 10261, 9458, 235, 982, "Input"]
 }, Closed]]
 }, Closed]]
 }, Open  ]]
