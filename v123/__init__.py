@@ -104,18 +104,6 @@ def analyses_path():
     '''
     return os.path.join(data_root(), 'analyses')
 
-# Create/load the Model of V1/V2/V3 that we will be using
-schira_model = ny.vision.RegisteredRetinotopyModel(
-    ny.vision.SchiraModel(),
-    registration='fsaverage_sym',
-    chirality='lh',
-    center=[-7.03000, -82.59000, -55.94000],
-    center_right=[58.58000, -61.84000, -52.39000],
-    radius=np.pi/2.5,
-    method='orthographic')
-# Also the 8-area model that we examine
-benson17_model = ny.vision.load_fmm_model('benson17')
-
 # This function converts a variance-explained measurement into a weight by
 # running it through an error function:
 def vexpl_to_weight(vexpl):
@@ -266,8 +254,6 @@ def subject_prep(sub, hemi, ds, model='benson17', clip=None):
     tpl = (sub,hemi,ds,model,clip)
     if tpl in _subject_prep_cache:
         return _subject_prep_cache[tpl]
-    prior = 'retinotopy_benson17' if model == 'benson17' else 'retinotopy_benson14'
-    model = benson17_model if model == 'benson17' else schira_model
     # We need to get the weights right
     hem = subject_hemi(sub,hemi,ds)
     ws = np.array(ny.vision.extract_retinotopy_argument(hem, 'weight', None, default='empirical'))
@@ -286,7 +272,6 @@ def aggregate_prep(model='benson17'):
     model = model.lower()
     tpl = ('agg', model)
     if tpl in _subject_prep_cache: return _subject_prep_cache[tpl]
-    model = benson17_model if model == 'benson17' else schira_model
     p = ny.vision.register_retinotopy_initialize(aggregate_hemi(), model,
                                                  prior=None, resample=None,
                                                  weight_cutoff=0.1,
