@@ -270,7 +270,7 @@ def subject_prep(sub, hemi, ds, model='benson17', clip=None):
     model = benson17_model if model == 'benson17' else schira_model
     # We need to get the weights right
     hem = subject_hemi(sub,hemi,ds)
-    ws = ny.vision.extract_retinotopy_argument(hem, 'weight', None, default='empirical')
+    ws = np.array(ny.vision.extract_retinotopy_argument(hem, 'weight', None, default='empirical'))
     ec = ny.vision.extract_retinotopy_argument(hem, 'eccentricity', None, default='empirical')
     if clip is not None: ws[ec > clip] = 0
     p = ny.vision.register_retinotopy_initialize(hem, model,
