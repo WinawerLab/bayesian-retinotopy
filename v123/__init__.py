@@ -575,7 +575,7 @@ def subject_cmag(sub, hem, model='benson17', skip_paths=False, skip_neighborhood
                         cm = ny.vision.path_cortical_magnification(msh, path,
                                                                    polar_angle=ang0,
                                                                    eccentricity=eccs,
-                                                                   mask=(vlab== area),
+                                                                   mask=(vlab == area),
                                                                    return_all=True)
                     except:
                         cm = ([], [])
