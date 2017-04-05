@@ -554,7 +554,7 @@ def subject_cmag(sub, hem, model='benson17', skip_paths=False, skip_neighborhood
     vlab = s.prop('predicted_visual_area')
     eccs = s.prop('predicted_eccentricity')
     ang0 = s.prop('predicted_polar_angle')
-    angs = np.pi/180.0 * (90 - s.prop('polar_angle'))
+    angs = np.pi/180.0 * (90 - ang0)
     (x,y) = (eccs*np.cos(angs), eccs*np.sin(angs))
     cmag_nei = {}
     cmag_pth = {}
