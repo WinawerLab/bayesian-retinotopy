@@ -551,7 +551,7 @@ def subject_cmag(sub, hem, model='benson17', skip_paths=False, skip_neighborhood
     if tpl in _sub_cmag_cache: return _sub_cmag_cache[tpl]
     hemi = subject_hemi(sub, hem, 0)
     s = subject(sub, hem, 0, model, clip=clip)
-    vlab = s.prop('predicted_visual_area')
+    vlab = np.abs(s.prop('predicted_visual_area'))
     eccs = s.prop('predicted_eccentricity')
     ang0 = s.prop('predicted_polar_angle')
     angs = np.pi/180.0 * (90 - ang0)
@@ -636,7 +636,7 @@ def subject_cmag(sub, hem, model='benson17', skip_paths=False, skip_neighborhood
                 # we want to do some smoothing to fill in the infinite holes; we ask it to keep the
                 # same distribution of values as were used as input, however.
                 cmi = np.array(cm[:,i])
-                mask = np.where(vlab > 0)[0]
+                mask = np.where(vlab != 0)[0]
                 # make sure invalid values inside of V123 are marked as inf so that they become
                 # outliers in the smoothing algorithm below:
                 cmi[mask[np.isnan(cmi[mask])]] = np.inf
