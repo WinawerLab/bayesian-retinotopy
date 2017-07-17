@@ -332,12 +332,16 @@ def _register_calc_fn(prepfn, steps, scale, ethresh):
         anchor_field = ny.vision.retinotopy_anchors(dat['map'], dat['model'],
                                                     scale=scale,
                                                     weight_cutoff=0)
+        emin = 0.25 * dat['map'].edge_lengths
+        emax = 3.00 * dat['map'].edge_lengths
         # Register the data
         reg = ny.registration.mesh_register(
             dat['map'],
-            [['edge',      'harmonic',      'scale',1.0],
-             ['angle',     'infinite-well', 'scale',1.0],
-             ['perimeter', 'harmonic'                  ],
+            [['edge',      'harmonic',      'scale',1.0                        ],
+             ['angle',     'harmonic',      'scale',1.0                        ],
+             ['edge',      'infinite-well', 'scale',1.0, 'min',emin, 'max',emax],
+             ['angle',     'infinite-well', 'scale',1.0                        ],
+             ['perimeter', 'harmonic'                                          ],
              anchor_field],
             method='random',
             max_steps=steps,
@@ -354,7 +358,7 @@ def _register_calc_fn(prepfn, steps, scale, ethresh):
         return tmp
     return _calc
 
-def aggregate_register(model='benson17', steps=2000, scale=1.0, exclusion_threshold=None):
+def aggregate_register(model='benson17', steps=20000, scale=10.0, exclusion_threshold=None):
     '''
     aggregate_register() yields a dictionary of data that is the result of
       registering the 2D mesh constructed in aggregate_prep() to the V1/2/3 model.
@@ -374,7 +378,7 @@ def aggregate_register(model='benson17', steps=2000, scale=1.0, exclusion_thresh
                           exclusion_threshold))
 
 _agg_cache = {}
-def aggregate(model='benson17', steps=2000, scale=1.0, exclusion_threshold=None):
+def aggregate(model='benson17', steps=20000, scale=10.0, exclusion_threshold=None):
     '''
     aggregate() yields a left hemisphere mesh object for the fsaverage_sym subject with
       data from both the group average retinotopy and the 'Benson14' registered
@@ -402,7 +406,7 @@ def aggregate(model='benson17', steps=2000, scale=1.0, exclusion_threshold=None)
     _agg_cache[tpl] = mesh
     return mesh
 
-def save_aggregate(directory=None, model='benson17', steps=2000, scale=1.0, create_directory=True):
+def save_aggregate(directory=None, model='benson17', steps=20000, scale=10.0, create_directory=True):
     '''
     save_aggregate() saves the aggregate data in four files placed in the 
       <analyses directory>/aggregate directory; these files are called:
@@ -439,7 +443,7 @@ def save_aggregate(directory=None, model='benson17', steps=2000, scale=1.0, crea
 
 
 def subject_register(sub, hem, ds, model='benson17',
-                     steps=2000, scale=1.0, exclusion_threshold=None, clip=None):
+                     steps=20000, scale=10.0, exclusion_threshold=None, clip=None):
     '''
     subject_register(sub, hem, ds) yields a dictionary of data that is the result
       of registering the 2D mesh constructed in subject_prep(sub, hem, ds) to the
@@ -466,7 +470,7 @@ def subject_register(sub, hem, ds, model='benson17',
 
 _sub_cache = {}
 def subject(sub, hem, ds, model='benson17',
-            steps=2000, scale=1.0, exclusion_threshold=None, clip=None):
+            steps=20000, scale=10.0, exclusion_threshold=None, clip=None):
     '''
     subject(sub, hem, ds) yields a appropriate mesh object for the subject whose subject id is
       given (sub) with data from the appropriate dataset (ds) applied as the properties
