@@ -253,6 +253,9 @@ def subject_prep(sub, hemi, ds, model='benson17', clip=None):
     model = model.lower()
     if model in ['schira', 'schira10', 'schira2010', 'benson14', 'benson2014']:
         model = 'schira'
+    if model == 'benson2017':
+        model = 'benson17'
+    prior = 'retinotopy_benson14' if model == 'schira' else 'retinotopy_benson17'
     tpl = (sub,hemi,ds,model,clip)
     if tpl in _subject_prep_cache:
         return _subject_prep_cache[tpl]
@@ -358,7 +361,7 @@ def _register_calc_fn(prepfn, steps, scale, ethresh):
         return tmp
     return _calc
 
-def aggregate_register(model='benson17', steps=20000, scale=10.0, exclusion_threshold=None):
+def aggregate_register(model='benson17', steps=20000, scale=1.0, exclusion_threshold=None):
     '''
     aggregate_register() yields a dictionary of data that is the result of
       registering the 2D mesh constructed in aggregate_prep() to the V1/2/3 model.
@@ -378,7 +381,7 @@ def aggregate_register(model='benson17', steps=20000, scale=10.0, exclusion_thre
                           exclusion_threshold))
 
 _agg_cache = {}
-def aggregate(model='benson17', steps=20000, scale=10.0, exclusion_threshold=None):
+def aggregate(model='benson17', steps=20000, scale=1.0, exclusion_threshold=None):
     '''
     aggregate() yields a left hemisphere mesh object for the fsaverage_sym subject with
       data from both the group average retinotopy and the 'Benson14' registered
@@ -406,7 +409,7 @@ def aggregate(model='benson17', steps=20000, scale=10.0, exclusion_threshold=Non
     _agg_cache[tpl] = mesh
     return mesh
 
-def save_aggregate(directory=None, model='benson17', steps=20000, scale=10.0, create_directory=True):
+def save_aggregate(directory=None, model='benson17', steps=20000, scale=1.0, create_directory=True):
     '''
     save_aggregate() saves the aggregate data in four files placed in the 
       <analyses directory>/aggregate directory; these files are called:
@@ -443,7 +446,7 @@ def save_aggregate(directory=None, model='benson17', steps=20000, scale=10.0, cr
 
 
 def subject_register(sub, hem, ds, model='benson17',
-                     steps=20000, scale=10.0, exclusion_threshold=None, clip=None):
+                     steps=8000, scale=1.0, exclusion_threshold=None, clip=None):
     '''
     subject_register(sub, hem, ds) yields a dictionary of data that is the result
       of registering the 2D mesh constructed in subject_prep(sub, hem, ds) to the
@@ -470,7 +473,7 @@ def subject_register(sub, hem, ds, model='benson17',
 
 _sub_cache = {}
 def subject(sub, hem, ds, model='benson17',
-            steps=20000, scale=10.0, exclusion_threshold=None, clip=None):
+            steps=8000, scale=1.0, exclusion_threshold=None, clip=None):
     '''
     subject(sub, hem, ds) yields a appropriate mesh object for the subject whose subject id is
       given (sub) with data from the appropriate dataset (ds) applied as the properties
