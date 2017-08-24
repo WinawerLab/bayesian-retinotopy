@@ -79,30 +79,42 @@ def data_root(*args):
                 sub: subject_datafiles[sub]['lh']['angle'].keys()
                 for sub in subject_names}
     return dr
-def retinotopy_path():
+_retinotopy_path = 'retinotopy'
+def retinotopy_path(set_path=None):
     '''
     v123.retinotopy_path() yields the current directory containing the v123 analysis project's
       individual subject retinotopy surface-overlay data.
     '''
-    return os.path.join(data_root(), 'retinotopy')
-def cache_path():
+    global _retinotopy_path
+    if set_path is not None: _retinotopy_path = set_path
+    return os.path.join(data_root(), _retinotopy_path)
+_cache_path = 'cache'
+def cache_path(set_path=None):
     '''
     v123.cache_path() yields the current directory containing the v123 analysis project's
       individual subject data cache, where intermediate files are stored for faster loading.
     '''
-    return os.path.join(data_root(), 'cache')
-def freesurfer_path():
+    global _cache_path
+    if set_path is not None: _cache_path = set_path
+    return os.path.join(data_root(), _cache_path)
+_freesurfer_path = 'freesurfer_subjects'
+def freesurfer_path(set_path=None):
     '''
     v123.freesurfer_path() yields the current directory for the v123 analysis project's FreeSurfer
       subjets.
     '''
-    return os.path.join(data_root(), 'freesurfer_subjects')
-def analyses_path():
+    global _freesurfer_path
+    if set_path is not None: _freesurfer_path = set_path
+    return os.path.join(data_root(), _freesurfer_path)
+_analyses_path = 'analyses'
+def analyses_path(set_path=None):
     '''
     v123.analyses_path() yields the current directory for the v123 analysis project's results;
       outputs of analyses should be written here.
     '''
-    return os.path.join(data_root(), 'analyses')
+    global _analyses_path
+    if set_path is not None: _analyses_path = set_path
+    return os.path.join(data_root(), _analyses_path)
 
 # This function converts a variance-explained measurement into a weight by
 # running it through an error function:
@@ -361,19 +373,22 @@ def _register_calc_fn(prepfn, steps, scale, ethresh):
         return tmp
     return _calc
 
-def aggregate_register(model='benson17', steps=20000, scale=1.0, exclusion_threshold=None):
+def aggregate_register(model='benson17', steps=None, scale=1.0, exclusion_threshold=None):
     '''
     aggregate_register() yields a dictionary of data that is the result of
       registering the 2D mesh constructed in aggregate_prep() to the V1/2/3 model.
       The result is cached so that it is not recalculated in the future.
 
     The following options are accepted:
-      * steps (default: 2000) specifies the number of steps to run in the minimization.
+      * steps (default: None) specifies the number of steps to run in the minimization; if
+        None, then uses 10000 for benson17 model and 20000 for the schira model.
       * scale (default: 0.1) specifies the scale of the retinotopy force field term.
     '''
     thresh_str = 'none' if exclusion_threshold is None else \
                  ('%06.3f' % exclusion_threshold)
     model = model.lower()
+    if steps is None:
+        steps = 10000 if model == 'benson17' else 20000
     flnm = '%s_steps=%05d_scale=%06.3f_thresh=%s.p' % (model, steps, scale, thresh_str)
     return auto_cache(
         os.path.join('aggregate', flnm),
@@ -381,7 +396,7 @@ def aggregate_register(model='benson17', steps=20000, scale=1.0, exclusion_thres
                           exclusion_threshold))
 
 _agg_cache = {}
-def aggregate(model='benson17', steps=20000, scale=1.0, exclusion_threshold=None):
+def aggregate(model='benson17', steps=None, scale=1.0, exclusion_threshold=None):
     '''
     aggregate() yields a left hemisphere mesh object for the fsaverage_sym subject with
       data from both the group average retinotopy and the 'Benson14' registered
@@ -390,6 +405,8 @@ def aggregate(model='benson17', steps=20000, scale=1.0, exclusion_threshold=None
     '''
     global _agg_cache
     model = model.lower()
+    if steps is None:
+        steps = 10000 if model == 'benson17' else 20000
     tpl = (model, steps, scale, exclusion_threshold)
     if tpl in _agg_cache: return _agg_cache[tpl]
     dat = aggregate_register(model=model, steps=steps, scale=scale,
@@ -409,7 +426,7 @@ def aggregate(model='benson17', steps=20000, scale=1.0, exclusion_threshold=None
     _agg_cache[tpl] = mesh
     return mesh
 
-def save_aggregate(directory=None, model='benson17', steps=20000, scale=1.0, create_directory=True):
+def save_aggregate(directory=None, model='benson17', steps=None, scale=1.0, create_directory=True):
     '''
     save_aggregate() saves the aggregate data in four files placed in the 
       <analyses directory>/aggregate directory; these files are called:
@@ -421,6 +438,8 @@ def save_aggregate(directory=None, model='benson17', steps=20000, scale=1.0, cre
     options steps and scale are also accepted.
     '''
     model = model.lower()
+    if steps is None:
+        steps = 10000 if model == 'benson17' else 20000
     agg = aggregate(model=model, steps=steps, scale=scale)
     dr = directory if directory is not None else os.path.join(analyses_path(), 'aggregate')
     if not os.path.exists(dr) and create_directory:
@@ -548,7 +567,8 @@ def save_subject(sub, hem, ds, model='benson17', directory=None, create_director
     return None
 
 _sub_cmag_cache = {}
-def subject_cmag(sub, hem, model='benson17', skip_paths=False, skip_neighborhoods=False, clip=None):
+def subject_cmag(sub, hem, model='benson17', skip_paths=False, skip_neighborhoods=False, clip=None,
+                 steps=8000):
     '''
     subject_cmag(sub, hem) calculates and yields the cortical magnification for the given subject's
       given hemisphere. 
@@ -557,7 +577,7 @@ def subject_cmag(sub, hem, model='benson17', skip_paths=False, skip_neighborhood
     tpl = (sub, hem.lower(), model, clip)
     if tpl in _sub_cmag_cache: return _sub_cmag_cache[tpl]
     hemi = subject_hemi(sub, hem, 0)
-    s = subject(sub, hem, 0, model, clip=clip)
+    s = subject(sub, hem, 0, model, clip=clip, steps=steps)
     vlab = np.abs(s.prop('predicted_visual_area'))
     eccs = s.prop('predicted_eccentricity')
     ang0 = s.prop('predicted_polar_angle')
@@ -659,14 +679,14 @@ def subject_cmag(sub, hem, model='benson17', skip_paths=False, skip_neighborhood
     return _sub_cmag_cache[tpl]
 
 def save_subject_cmag(sub, hem, model='benson17', directory=None, create_directory=True,
-                      skip_paths=False, skip_neighborhoods=False, clip=None):
+                      skip_paths=False, skip_neighborhoods=False, clip=None, steps=8000):
     '''
     save_subject_cmag(sub, hem) saves the data structures found in subject_cmag(sub,hem) out to disk
       in the analyses_path()/<subject name> directory (may be modified with the directory argument).
     '''
     hem = hem.lower()
     model = model.lower()
-    s = subject_cmag(sub, hem, model, clip=clip,
+    s = subject_cmag(sub, hem, model, clip=clip, steps=steps,
                      skip_paths=skip_paths, skip_neighborhoods=skip_neighborhoods)
     dr = directory if directory is not None else os.path.join(analyses_path(), sub)
     if not os.path.exists(dr) and create_directory:
