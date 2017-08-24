@@ -40,6 +40,8 @@ def data_root(*args):
     if not args:
         dr = _configuration['data_root']
         if dr is None or not os.path.exists(dr) or not os.path.isdir(dr):
+            dr = os.getenv('V123_DATA_ROOT')
+        if dr is None or not os.path.exists(dr) or not os.path.isdir(dr):            
             raise ValueError('Cannot find data_root: %s' % dr)
     else:
         if len(args) > 1: dr = os.path.join(*args)
