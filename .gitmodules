@@ -1,0 +1,6 @@
+[submodule "modules/neuropythy"]
+	path = modules/neuropythy
+	url = https://github.com/noahbenson/neuropythy
+[submodule "modules/Neurotica"]
+	path = modules/Neurotica
+	url = https://github.com/noahbenson/Neurotica
