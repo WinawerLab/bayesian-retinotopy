@@ -1,5 +1,5 @@
-# v123-retinotopic-maps
-Analysis and visualization code to accompany the paper Benson et al. (2017).
+# Bayesain Retinotopy
+Analysis and visualization code to accompany the paper Benson and Winawer (2017).
 
 This repository contains all the code used to analyze the data in the paper
 Benson *et al*. (2017). All analysis code is written in python and can be
@@ -30,7 +30,8 @@ internally include and make use of a third [Java
 library](https://github.com/noahbenson/nben) to perform the registrations.)
 
 The versions of all libraries that were used to make the figures in the paper
-are given here.
+are given here. The Neuropythy and Neurotica libraries used are included as
+submodules of this github repository in the modules directory.
  * Neuropythy version 0.3
  * Numpy version 1.11.3
  * Scipy version 0.18.1
@@ -60,7 +61,7 @@ analysis notebook:
 ```bash
 > pip install neuropythy
 > export PYTHONPATH="$PWD:$PYTHONPATH"
-> ipython notebook ./v123-analysis.ipynb
+> jupyter-notebook-2.7 ./v123-analysis.ipynb
 ```
 
 ### Downloading the Data
@@ -84,9 +85,9 @@ dowload script; if not, then a message will be printed instructing you to
 download the files manually.
 
 
-## License
+##License
 
-The v123-retinotopic-mapping repository is free software: you can redistribute
+The bayesian-retinotopy repository is free software: you can redistribute
 it and/or modify it under the terms of the GNU General Public License as
 published by the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
