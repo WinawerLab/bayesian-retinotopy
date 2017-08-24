@@ -1,4 +1,4 @@
-# Bayesain Retinotopy
+# Bayesian Retinotopy
 Analysis and visualization code to accompany the paper Benson and Winawer (2017).
 
 This repository contains all the code used to analyze the data in the paper
