@@ -18,6 +18,25 @@ used to create the visualizations.
  * [Jonathan Winawer](https://github.com/JWinawer)
 
 
+## Predicting Retinotopy
+
+If you are viewing this repository with the goal of predicting a retinotopic map
+in an individual subject, you should instead look in these other places:
+ * [The Neuropythy library](https://github.com/noahbenson/neuropythy); this
+   Python library performs the actual Bayesian inference described in the paper.
+   It can be installed in two ways; (1) you can download Neuropythy from
+   GitHub, or (2) you can install Neuropythy using pip
+   (`pip install neuropythy`). Neuropythy is available on
+   [PyPI](https://pypi.python.org/pypi/neuropythy).
+ * [The Neuropythy Docker](https://hub.docker.com/r/nben/neuropythy); this
+   docker simply contains an installation of the Neuropythy library and can
+   be used to easily run any of the commands included in it.
+
+Documentation for the Neuropythy library can be found at its GitHub page; to
+perform Bayesian inference with an individual subject, the required command is
+the register_retinotopy command (see the Commands section of the GitHub
+README file).
+
 ## Dependencies
 
 The Python code in this repository makes heavy use of the
@@ -69,15 +88,17 @@ analysis notebook:
 Before running any analyses or visualization code found in either of the
 included notebooks, you will have to download the data used in the paper from
 the [Open Science Foundation](https://osf.io/). This can be done with the
-included download.sh script. The package that is downloaded can include either
-the entire dataset or just the raw data (i.e., not the analysis results or
-figures).
+included download.sh script. Note that the data directory is very large and
+may take some time to download.
 
 ```bash
-# To download the entire dataset, including the results of analyses and figures
+> git clone https://github.com/winawerlab/bayesian-retinotopy
+# ... after cloning ...
+> cd bayesian-retinotopy
+# you may need to edit the permissions in order to execute download.sh
+> chmod 755 ./download.sh
+# To download the entire dataset
 > ./download.sh
-# To download only the dataset of raw data without analyses or figures
-> ./download.sh raw
 ```
 
 Note that you must have either wget or curl installed in order to use the
