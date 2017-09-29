@@ -118,19 +118,14 @@ def analyses_path(set_path=None):
     if set_path is not None: _analyses_path = set_path
     return os.path.join(data_root(), _analyses_path)
 
-# This function converts a variance-explained measurement into a weight by
-# running it through an error function:
-def vexpl_to_weight(vexpl):
-    ierf05 = sp.special.erfinv(0.5)
-    vexpl = np.asarray(vexpl)
-    w = vexpl[vexpl > 0.2]
-    return sp.special.erf((ierf05/np.median(w)) * (~np.isclose(vexpl, 0)) * vexpl)
-
 # The following functions are for extracting data from the above datafiles;
 # all of these cache the data as they go so that data is not reloaded more
 # that once per session.
 _subject_data_cache = {}
-_measure_names = ['polar_angle', 'eccentricity', 'variance_explained', 'weight']
+_measure_names = ['polar_angle', 'eccentricity', 'variance_explained', 'prf_size']
+_measure_abbrs = ['angle',       'eccen',        'vexpl',              'prfsz']
+_measure_n2a = {n:a for (n,a) in zip(_measure_names, _measure_abbrs)}
+_measure_a2n = {a:n for (n,a) in zip(_measure_names, _measure_abbrs)}
 def subject_data(sub, hem, ds, meas=None):
     global _subject_data_cache
     from nibabel.freesurfer.mghformat import load as mghload
@@ -144,11 +139,8 @@ def subject_data(sub, hem, ds, meas=None):
         raise ValueError('aggregate subject has only a left-hemisphere')
     if meas is not None:
         meas = meas.lower()
-        if meas in ['angle', 'eccen', 'vexpl', 'prfsz']:
-            meas = {'angle': 'polar_angle'       ,
-                    'eccen': 'eccentricity'      ,
-                    'vexpl': 'variance_explained',
-                    'prfsz': 'prf_size'          }[meas]
+        if meas in _measure_a2n:
+            meas = _measure_a2n[meas]
         if meas not in _measure_names:
             raise ValueError('meas type not valid: %s' % meas)
     if ds not in subject_datasets[sub]:
@@ -160,35 +152,34 @@ def subject_data(sub, hem, ds, meas=None):
     if ds not in hemdat:
         # now we load the data...
         fs = subject_datafiles[sub][hem]
-        hemdat[ds] = {
-            'polar_angle':        mghload(fs['angle'][ds]).get_data().flatten(),
-            'eccentricity':       mghload(fs['eccen'][ds]).get_data().flatten(),
-            'variance_explained': mghload(fs['vexpl'][ds]).get_data().flatten(),
-            'prf_size':           mghload(fs['prfsz'][ds]).get_data().flatten()}
-        hemdat[ds]['weight'] = vexpl_to_weight(hemdat[ds]['variance_explained'])
+        hemdat[ds] = {pname: mghload(fs[_measure_n2a[pname]][ds]).get_data().flatten()
+                      for pname in _measure_names}
     dsdat = hemdat[ds]
     return dsdat if meas is None else dsdat[meas]
-def aggregate_data(meas=None):
+
+def aggregate_data(hem, meas=None):
     global _subject_data_cache
     from nibabel.freesurfer.mghformat import load as mghload
+    def _aggload(nm):
+        flnm = os.path.join(retinotopy_path(), 'aggregate', '%s_%s.mgz' % (hem, nm))
+        mghdat = mghload(flnm)
+        return mghdat.get_data().flatten()
     if meas is not None:
         meas = meas.lower()
-        if meas in ['angle', 'eccen', 'vexpl']:
-            meas = {'angle': 'polar_angle'       ,
-                    'eccen': 'eccentricity'      ,
-                    'vexpl': 'variance_explained',
-                    'prfsz': 'prf_size'          }[meas]
+        if meas in _measure_abbrs:
+            meas = _measure_a2n[meas]
         if meas not in _measure_names:
             raise ValueError('meas type not valid: %s' % meas)
+    hem = hem.lower()
+    if hem != 'lh' and hem != 'rh':
+        raise ValueError('hem must be lh or rh')
     if 'agg' not in _subject_data_cache:
+        _subject_data_cache['agg'] = {}
+    aggdat = _subject_data_cache['agg']
+    if hem not in aggdat:
         # now we load the data...
-        aggdat = {
-            k: mghload(os.path.join(retinotopy_path(), 'aggregate', v)).get_data().flatten()
-            for (k,v) in {'polar_angle':  'angle.mgz',
-                          'eccentricity': 'eccen.mgz',
-                          'weight':       'weight.mgz'}.iteritems()}
-        _subject_data_cache['agg'] = aggdat
-    return _subject_data_cache['agg']
+        aggdat[hem] = {k:_aggload(v) for (k,v) in _measure_n2a.iteritems()}
+    return aggdat[hem]
 
 _subject_hemi_cache = {}
 _subject_hemi_cache_ds = {}
@@ -216,7 +207,6 @@ def subject_hemi(sub, hem, ds=None):
                     gold_polar_angle        = gsdat['polar_angle'],
                     gold_eccentricity       = gsdat['eccentricity'],
                     gold_variance_explained = gsdat['variance_explained'],
-                    gold_weight             = gsdat['weight'],
                     gold_prf_size           = gsdat['prf_size']))
             scache[hem] = hemi
         return scache[hem]
@@ -230,15 +220,18 @@ def subject_hemi(sub, hem, ds=None):
                     polar_angle        = sdat['polar_angle'],
                     eccentricity       = sdat['eccentricity'],
                     variance_explained = sdat['variance_explained'],
-                    weight             = sdat['weight'],
                     prf_size           = sdat['prf_size']))
         _subject_hemi_cache_ds[(sub,hem,ds)] = shemi
         return shemi
-def aggregate_hemi():
+def aggregate_hemi(hem):
     global _subject_hemi_cache
-    if 'agg' in _subject_hemi_cache: return _subject_hemi_cache['agg']
-    aggdat = aggregate_data()
-    agghem = ny.freesurfer_subject('fsaverage_sym').LH
+    hem = hem.lower()
+    if 'agg' not in _subject_hemi_cache:
+        _subject_hemi_cache['agg'] = {}
+    aggcch = _subject_hemi_cache['agg']
+    if hem in aggcch: return aggcch[hem]
+    aggdat = aggregate_data(hem)
+    agghem = getattr(ny.freesurfer_subject('fsaverage'), hem.upper())
     agghem = agghem.using(
         properties = reduce(
             lambda p,x: p.without(x) if x in p else p,
@@ -252,8 +245,9 @@ def aggregate_hemi():
         properties = agghem.properties.using(
             polar_angle=aggdat['polar_angle'],
             eccentricity=aggdat['eccentricity'],
-            weight=aggdat['weight']))
-    _subject_hemi_cache['agg'] = agghem
+            variance_explained=aggdat['variance_explained'],
+            prf_size=aggdat['prf_size']))
+    aggcch[hem] = agghem
     return agghem
     
 _subject_prep_cache = {}
@@ -269,21 +263,24 @@ def subject_prep(sub, hemi, ds, model='benson17', clip=None):
         model = 'schira'
     if model == 'benson2017':
         model = 'benson17'
-    prior = 'retinotopy_benson14' if model == 'schira' else 'retinotopy_benson17'
+    #prior = 'retinotopy_benson14' if model == 'schira' else 'retinotopy_benson17'
+    prior = None
     tpl = (sub,hemi,ds,model,clip)
     if tpl in _subject_prep_cache:
         return _subject_prep_cache[tpl]
     # We need to get the weights right
     hem = subject_hemi(sub,hemi,ds)
+    # do some smoothing...
     ws = np.array(ny.vision.extract_retinotopy_argument(hem, 'weight', None, default='empirical'))
-    ec = ny.vision.extract_retinotopy_argument(hem, 'eccentricity', None, default='empirical')
-    if clip is not None: ws[ec > clip] = 0
+    smret = ny.vision.clean_retinotopy(hem.white_surface, 'any', weight=ws)
+    if clip is not None: ws[smret[1] > clip] = 0
     p = ny.vision.register_retinotopy_initialize(hem, model,
+                                                 polar_angle=smret[0], eccentricity=smret[1],
                                                  weight=ws, prior=prior, weight_cutoff=0.1,
                                                  max_area=(3 if model == 'schira' else None))
     _subject_prep_cache[tpl] = p
     return p
-def aggregate_prep(model='benson17'):
+def aggregate_prep(hemi, model='benson17'):
     '''
     aggregate_prep() is like subject_prep but yields a preparation for the
     aggregate dataset instead of an individual subject.
@@ -292,9 +289,13 @@ def aggregate_prep(model='benson17'):
     model = model.lower()
     if model in ['schira', 'schira10', 'schira2010', 'benson14', 'benson2014']:
         model = 'schira'
-    tpl = ('agg', model)
+    tpl = ('agg', hemi, model)
     if tpl in _subject_prep_cache: return _subject_prep_cache[tpl]
-    p = ny.vision.register_retinotopy_initialize(aggregate_hemi(), model,
+    hem = aggregate_hemi(hemi)
+    smret = ny.vision.clean_retinotopy(hem.white_surface, 'any', weight='variance_explained')
+    p = ny.vision.register_retinotopy_initialize(hem, model,
+                                                 polar_angle=smret[0], eccentricity=smret[1],
+                                                 weight='variance_explained',
                                                  prior=None, resample=None,
                                                  weight_cutoff=0.1,
                                                  partial_voluming_correction=False,
@@ -333,32 +334,38 @@ def auto_cache(filename, calc_fn, cache_directory=Ellipsis, create_dirs=True):
         if len(fdir) > 0 and not os.path.isdir(fdir) and create_dirs:
             os.makedirs(fdir)
         with open(filename, 'wb') as fl:
-            pickle.dump(res, fl)
+            pickle.dump({k:v for (k,v) in res.iteritems() if k[0] != '_'}, fl)
     return res
 
-def _register_calc_fn(prepfn, steps, scale, ethresh):
+_model_field_signs = {1: -1, #V1
+                      2:  1, #V2
+                      3: -1, #V3
+                      4:  1, #hV4
+                      5: -1, #VO1
+                      6:  1, #LO1
+                      7: -1, #V3b
+                      8:  1} #V3a
+    
+
+def _register_calc_fn(prepfn, steps, scale):
     def _calc():
         # Prep the aggregate data
         dat = prepfn()
         # Generate a field
-        # We don't use the mesh_field currently, but maybe it will be good for other areas.
-        #mesh_field = ny.vision.retinotopy.retinotopy_mesh_field(
-        #  dat['map'], dat['model'],
-        #  scale=scale, exclusion_threshold=ethresh, 
-        #  max_eccentricity=1.0, max_polar_angle=18.0, sigma=6.0)
         anchor_field = ny.vision.retinotopy_anchors(dat['map'], dat['model'],
+                                                    sigma=[0.1, 3.0, 9.0],
+                                                    model_field_sign=_model_field_signs,
+                                                    field_sign_weight=1,
                                                     scale=scale,
                                                     weight_cutoff=0)
-        emin = 0.25 * dat['map'].edge_lengths
-        emax = 3.00 * dat['map'].edge_lengths
+        #emin = 0.25 * dat['map'].edge_lengths
+        #emax = 3.00 * dat['map'].edge_lengths
         # Register the data
         reg = ny.registration.mesh_register(
             dat['map'],
-            [['edge',      'harmonic',      'scale',1.0                        ],
-             ['angle',     'harmonic',      'scale',1.0                        ],
-             ['edge',      'infinite-well', 'scale',1.0, 'min',emin, 'max',emax],
-             ['angle',     'infinite-well', 'scale',1.0                        ],
-             ['perimeter', 'harmonic'                                          ],
+            [['edge',      'harmonic',      'scale',1.0],
+             ['angle',     'infinite-well', 'scale',1.0],
+             ['perimeter', 'harmonic'                  ],
              anchor_field],
             method='random',
             max_steps=steps,
@@ -372,46 +379,51 @@ def _register_calc_fn(prepfn, steps, scale, ethresh):
         tmp['resampled_registered_coordinates'] = postproc['registered_coordinates']
         tmp['resampled_registered_coordinates_3D'] = postproc['finished_registration'].coordinates.T
         tmp['registered_coordinates'] = postproc['registration'].coordinates.T
+        tmp['_orig'] = postproc
         return tmp
     return _calc
 
-def aggregate_register(model='benson17', steps=None, scale=1.0, exclusion_threshold=None):
+def aggregate_register(hemi, model='benson17', steps=5000, scale=1.0):
     '''
-    aggregate_register() yields a dictionary of data that is the result of
+    aggregate_register(h) yields a dictionary of data that is the result of
       registering the 2D mesh constructed in aggregate_prep() to the V1/2/3 model.
-      The result is cached so that it is not recalculated in the future.
+      The result is cached so that it is not recalculated in the future. The parameter h
+      should be either 'lh' or 'rh'.
 
     The following options are accepted:
-      * steps (default: None) specifies the number of steps to run in the minimization; if
-        None, then uses 10000 for benson17 model and 20000 for the schira model.
-      * scale (default: 0.1) specifies the scale of the retinotopy force field term.
+      * model (default: 'benson17') specifies the retinotopy model to use.
+      * steps (default: 5000) specifies the number of steps to run in the minimization.
+      * scale (default: 1.0) specifies the scale of the retinotopy potential field term relative to
+        the scale of the mesh-based terms.
     '''
-    thresh_str = 'none' if exclusion_threshold is None else \
-                 ('%06.3f' % exclusion_threshold)
     model = model.lower()
-    if steps is None:
-        steps = 10000 if model == 'benson17' else 20000
-    flnm = '%s_steps=%05d_scale=%06.3f_thresh=%s.p' % (model, steps, scale, thresh_str)
+    hemi = hemi.lower()
+    flnm = '%s.%s_steps=%05d_scale=%06.3f.p' % (hemi, model, steps, scale)
     return auto_cache(
         os.path.join('aggregate', flnm),
-        _register_calc_fn(lambda:aggregate_prep(model), steps, scale,
-                          exclusion_threshold))
+        _register_calc_fn(lambda:aggregate_prep(hemi, model), steps, scale))
 
 _agg_cache = {}
-def aggregate(model='benson17', steps=None, scale=1.0, exclusion_threshold=None):
+def aggregate(hemi, model='benson17', steps=5000, scale=1.0):
     '''
-    aggregate() yields a left hemisphere mesh object for the fsaverage_sym subject with
-      data from both the group average retinotopy and the 'Benson14' registered
-      predictions of retinotopy stored in the properties. The mesh's coordinates
-      have been registered to the V123 retinotopy model.
+    aggregate(hemi) yields a hemisphere mesh object for the fsaverage_sym subject with data from
+      both the group average retinotopy and the 'Benson14' registered predictions of retinotopy
+      stored in the properties. The mesh's coordinates have been registered to the V123 retinotopy
+      model.
+
+    The following options are accepted:
+      * model (default: 'benson17') specifies the retinotopy model to use.
+      * steps (default: None) specifies the number of steps to run in the minimization; if
+        None, then uses 10000 for benson17 model and 20000 for the schira model.
+      * scale (default: 1.0) specifies the scale of the retinotopy potential field term relative to
+        the scale of the mesh-based terms.
     '''
     global _agg_cache
     model = model.lower()
-    if steps is None:
-        steps = 10000 if model == 'benson17' else 20000
-    tpl = (model, steps, scale, exclusion_threshold)
+    hemi = hemi.lower()
+    tpl = (hemi, model, steps, scale)
     if tpl in _agg_cache: return _agg_cache[tpl]
-    dat = aggregate_register(model=model, steps=steps, scale=scale,
+    dat = aggregate_register(hemi, model=model, steps=steps, scale=scale,
                              exclusion_threshold=exclusion_threshold)
     pre = dat['prediction']
     varea = pre['visual_area'] if 'visual_area' in pre else pre['V123_label']
@@ -428,7 +440,8 @@ def aggregate(model='benson17', steps=None, scale=1.0, exclusion_threshold=None)
     _agg_cache[tpl] = mesh
     return mesh
 
-def save_aggregate(directory=None, model='benson17', steps=None, scale=1.0, create_directory=True):
+def save_aggregate(directory=None, source='HCP', model='benson17', steps=5000, scale=1.0,
+                   create_directory=True):
     '''
     save_aggregate() saves the aggregate data in four files placed in the 
       <analyses directory>/aggregate directory; these files are called:
@@ -440,8 +453,6 @@ def save_aggregate(directory=None, model='benson17', steps=None, scale=1.0, crea
     options steps and scale are also accepted.
     '''
     model = model.lower()
-    if steps is None:
-        steps = 10000 if model == 'benson17' else 20000
     agg = aggregate(model=model, steps=steps, scale=scale)
     dr = directory if directory is not None else os.path.join(analyses_path(), 'aggregate')
     if not os.path.exists(dr) and create_directory:
@@ -452,7 +463,7 @@ def save_aggregate(directory=None, model='benson17', steps=None, scale=1.0, crea
     _surf_mgh = lambda dat, dt: nibabel.freesurfer.mghformat.MGHImage(
         np.asarray([[dat]], dtype=dt),
         np.eye(4))
-    flnm_tag = '%s_steps=%05d_scale=%05.2f' % (model, steps, scale)
+    flnm_tag = '%s_source=%s_steps=%05d_scale=%05.2f' % (model, source, steps, scale)
     flnm_pre_tmpl = 'lh.predict_%s.' + flnm_tag + '.mgz'
     img = _surf_mgh(agg.prop('predicted_polar_angle'), np.float32)
     img.to_filename(os.path.join(dr, flnm_pre_tmpl % 'angle'))
@@ -467,7 +478,7 @@ def save_aggregate(directory=None, model='benson17', steps=None, scale=1.0, crea
 
 
 def subject_register(sub, hem, ds, model='benson17',
-                     steps=8000, scale=1.0, exclusion_threshold=None, clip=None):
+                     steps=5000, scale=1.0, exclusion_threshold=None, clip=None):
     '''
     subject_register(sub, hem, ds) yields a dictionary of data that is the result
       of registering the 2D mesh constructed in subject_prep(sub, hem, ds) to the
@@ -476,8 +487,8 @@ def subject_register(sub, hem, ds, model='benson17',
 
     The following options are accepted:
       * model (default: 'benson17') may be 'benson17' or 'schira'.
-      * steps (default: 500) specifies the number of steps to run in the minimization.
-      * scale (default: 0.1) specifies the scale of the retinotopy force field term.
+      * steps (default: 5000) specifies the number of steps to run in the minimization.
+      * scale (default: 1.0) specifies the scale of the retinotopy force field term.
     '''
     thresh_str = 'none' if exclusion_threshold is None else \
                  ('%06.3f' % exclusion_threshold)
@@ -489,12 +500,11 @@ def subject_register(sub, hem, ds, model='benson17',
     flnm = flnm + ('.p' if clip is None else '_clip=%d.p' % clip)
     return auto_cache(
         os.path.join(sub, flnm),
-        _register_calc_fn(lambda:subject_prep(sub, hem, ds, model, clip=clip), steps, scale, 
-                          exclusion_threshold))
+        _register_calc_fn(lambda:subject_prep(sub, hem, ds, model, clip=clip), steps, scale))
 
 _sub_cache = {}
 def subject(sub, hem, ds, model='benson17',
-            steps=8000, scale=1.0, exclusion_threshold=None, clip=None):
+            steps=5000, scale=1.0, exclusion_threshold=None, clip=None):
     '''
     subject(sub, hem, ds) yields a appropriate mesh object for the subject whose subject id is
       given (sub) with data from the appropriate dataset (ds) applied as the properties
@@ -524,7 +534,8 @@ def subject(sub, hem, ds, model='benson17',
     _sub_cache[tpl] = mesh
     return mesh
 
-def save_subject(sub, hem, ds, model='benson17', directory=None, create_directory=True, clip=None):
+def save_subject(sub, hem, ds, model='benson17', directory=None, create_directory=True, clip=None,
+                 scale=1.0, steps=5000):
     '''
     save_subject(sub, hem, ds) saves the provided subject's registration data and predictions to the
       <analyses directory>/<subject name> directory; these files are called:
@@ -536,7 +547,7 @@ def save_subject(sub, hem, ds, model='benson17', directory=None, create_director
     options steps and scale are also accepted.
     '''
     model = model.lower()
-    dat = subject(sub, hem, ds, model=model, clip=clip)
+    dat = subject(sub, hem, ds, model=model, clip=clip, steps=steps, scale=scale)
     dr = directory if directory is not None else os.path.join(analyses_path(), sub)
     if not os.path.exists(dr) and create_directory:
         os.makedirs(dr)
@@ -570,7 +581,7 @@ def save_subject(sub, hem, ds, model='benson17', directory=None, create_director
 
 _sub_cmag_cache = {}
 def subject_cmag(sub, hem, model='benson17', skip_paths=False, skip_neighborhoods=False, clip=None,
-                 steps=8000):
+                 steps=5000):
     '''
     subject_cmag(sub, hem) calculates and yields the cortical magnification for the given subject's
       given hemisphere. 
@@ -681,7 +692,7 @@ def subject_cmag(sub, hem, model='benson17', skip_paths=False, skip_neighborhood
     return _sub_cmag_cache[tpl]
 
 def save_subject_cmag(sub, hem, model='benson17', directory=None, create_directory=True,
-                      skip_paths=False, skip_neighborhoods=False, clip=None, steps=8000):
+                      skip_paths=False, skip_neighborhoods=False, clip=None, steps=5000):
     '''
     save_subject_cmag(sub, hem) saves the data structures found in subject_cmag(sub,hem) out to disk
       in the analyses_path()/<subject name> directory (may be modified with the directory argument).
